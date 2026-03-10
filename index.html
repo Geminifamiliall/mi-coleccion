@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catálogo · Mi Colección</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#1e3048;--bg:#f0f7ff;--surface:#ffffff;
+  --blue:#b8d8f5;--blue-soft:#deeeff;--blue-mid:#8ec4ee;
+  --sky:#cce8ff;--sky-soft:#e8f5ff;
+  --mint:#c2e8e0;--mint-soft:#e4f7f3;
+  --lilac:#c8d8f8;--lilac-soft:#e8eeff;
+  --pink:#f0c8e0;--pink-soft:#faeaf4;
+  --yellow:#fdefc0;--yellow-soft:#fef8e0;
+  --accent:#3a86c8;--muted:#7a9ab8;--border:#c8dff0;
+  --shadow:0 4px 20px rgba(58,134,200,0.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Source Sans 3',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--blue-soft)}::-webkit-scrollbar-thumb{background:var(--blue);border-radius:10px}
+
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:1.5rem;padding:2rem;}
+.login-card{background:var(--surface);border:1.5px solid var(--border);border-radius:24px;padding:3rem 2.5rem;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(58,134,200,0.12);}
+.login-card h1{font-size:1.8rem;font-weight:700;color:var(--ink);margin-bottom:0.4rem;}
+.login-card h1 em{color:var(--accent);font-style:normal;}
+.login-card p{color:var(--muted);font-size:0.95rem;margin-bottom:2rem;line-height:1.5;}
+.btn-google{display:inline-flex;align-items:center;gap:0.75rem;background:var(--accent);color:white;border:none;cursor:pointer;font-family:'Source Sans 3',sans-serif;font-size:0.95rem;font-weight:600;padding:0.85rem 2rem;border-radius:20px;transition:all 0.2s;width:100%;justify-content:center;}
+.btn-google:hover{background:#2a6aaa;transform:translateY(-1px);box-shadow:0 4px 16px rgba(58,134,200,0.3);}
+.login-note{font-size:0.75rem;color:var(--muted);margin-top:1rem;line-height:1.5;}
+
+#sync-bar{display:none;background:var(--blue-soft);border-bottom:1px solid var(--border);padding:0.4rem 2rem;font-size:0.8rem;color:var(--accent);font-weight:600;align-items:center;gap:0.5rem;}
+#sync-bar.show{display:flex;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+header{background:var(--surface);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:200;border-bottom:3px solid var(--blue);box-shadow:0 2px 16px rgba(58,134,200,0.08);}
+.logo{font-size:1.35rem;font-weight:700;color:var(--ink);}
+.logo em{color:var(--accent);font-style:normal;}
+.header-right{display:flex;gap:0.6rem;align-items:center;}
+.user-chip{display:flex;align-items:center;gap:0.5rem;background:var(--blue-soft);border:1.5px solid var(--border);padding:0.35rem 0.85rem;border-radius:20px;font-size:0.8rem;font-weight:600;color:var(--accent);}
+
+.btn{font-family:'Source Sans 3',sans-serif;font-size:0.82rem;font-weight:600;border:none;cursor:pointer;padding:0.5rem 1.1rem;border-radius:20px;transition:all 0.18s;display:inline-flex;align-items:center;gap:0.4rem;}
+.btn-primary{background:var(--accent);color:white;}
+.btn-primary:hover{background:#2a6aaa;transform:translateY(-1px);box-shadow:0 4px 12px rgba(58,134,200,0.3);}
+.btn-ghost{background:var(--blue-soft);color:var(--accent);border:1.5px solid var(--blue);}
+.btn-ghost:hover{background:var(--blue);color:white;}
+.btn-danger{background:var(--pink-soft);color:#b04070;border:1.5px solid var(--pink);}
+.btn-danger:hover{background:var(--pink);color:white;}
+.btn-sm{padding:0.3rem 0.8rem;font-size:0.75rem;}
+.btn-outline{background:transparent;color:var(--accent);border:1.5px solid var(--accent);border-radius:20px;}
+.btn-outline:hover{background:var(--accent);color:white;}
+
+#app-screen{display:none;}
+#app-screen.show{display:block;}
+.main{display:flex;min-height:calc(100vh - 64px);}
+
+.sidebar{width:210px;min-width:210px;background:var(--surface);padding:1.5rem 0;display:flex;flex-direction:column;gap:0.15rem;border-right:2px solid var(--border);}
+.sidebar-section{padding:0.6rem 1.3rem 0.3rem;font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-top:0.5rem;}
+.nav-item{padding:0.6rem 1.3rem;cursor:pointer;font-size:0.95rem;font-weight:400;transition:all 0.15s;display:flex;align-items:center;justify-content:space-between;position:relative;}
+.nav-item:hover{background:var(--blue-soft);color:var(--accent);}
+.nav-item.active{background:var(--blue-soft);color:var(--accent);font-weight:600;}
+.nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:0 2px 2px 0;}
+.nav-item .count{font-size:0.7rem;font-weight:600;background:var(--blue);color:var(--accent);padding:0.1rem 0.5rem;border-radius:10px;}
+.nav-item.active .count{background:var(--accent);color:white;}
+
+.content{flex:1;padding:1.75rem 2rem;overflow-y:auto;background:var(--bg);}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap;}
+.toolbar-left{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;}
+.search-box{position:relative;display:flex;align-items:center;}
+.search-box input{font-family:'Source Sans 3',sans-serif;font-size:0.88rem;background:var(--surface);border:1.5px solid var(--border);padding:0.5rem 1rem 0.5rem 2.2rem;border-radius:20px;width:230px;color:var(--ink);outline:none;transition:border 0.2s;}
+.search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(58,134,200,0.12);}
+.search-box .icon{position:absolute;left:0.75rem;color:var(--muted);font-size:0.8rem;}
+.filter-select{font-family:'Source Sans 3',sans-serif;font-size:0.82rem;background:var(--surface);border:1.5px solid var(--border);padding:0.5rem 0.85rem;border-radius:20px;color:var(--ink);outline:none;cursor:pointer;}
+.view-toggle{display:flex;gap:0.3rem;}
+.view-toggle button{background:var(--surface);border:1.5px solid var(--border);padding:0.45rem 0.75rem;cursor:pointer;color:var(--muted);font-size:0.9rem;transition:all 0.15s;border-radius:10px;}
+.view-toggle button.active{background:var(--accent);color:white;border-color:var(--accent);}
+
+.stats-bar{display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);}
+.stat{display:flex;flex-direction:column;align-items:center;padding:1rem 1.75rem;flex:1;border-right:1.5px solid var(--border);text-align:center;}
+.stat:last-child{border-right:none;}
+.stat-label{font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.2rem;}
+.stat-value{font-size:1.5rem;font-weight:700;}
+.stat:nth-child(1) .stat-value{color:var(--accent);}
+.stat:nth-child(2) .stat-value{color:#3a9a80;}
+.stat:nth-child(3) .stat-value{color:#2a70b8;}
+.stat:nth-child(4) .stat-value{color:#6a50b0;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:1.2rem;}
+.card{background:var(--surface);border:1.5px solid var(--border);border-radius:16px;overflow:hidden;cursor:pointer;transition:all 0.22s;box-shadow:0 2px 8px rgba(58,134,200,0.06);}
+.card:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(58,134,200,0.16);border-color:var(--blue-mid);}
+.card-img{width:100%;aspect-ratio:4/3;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;border-bottom:1.5px solid var(--border);overflow:hidden;}
+.card-img img{width:100%;height:100%;object-fit:cover;}
+.card-body{padding:0.9rem;}
+.card-type{font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.25rem;}
+.card-title{font-size:0.97rem;font-weight:600;line-height:1.35;margin-bottom:0.15rem;color:var(--ink);}
+.card-sub{font-size:0.83rem;color:var(--muted);}
+.card-meta{margin-top:0.65rem;display:flex;justify-content:space-between;align-items:center;}
+.card-inv{font-size:0.68rem;color:var(--muted);font-weight:600;}
+.card-price{font-size:0.8rem;font-weight:700;color:var(--accent);}
+.tag{display:inline-block;font-size:0.62rem;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:0.15rem 0.5rem;border-radius:8px;margin:0.1rem;}
+.tag-c0{background:var(--blue-soft);color:#2a6aaa;}
+.tag-c1{background:var(--mint-soft);color:#2a7a6a;}
+.tag-c2{background:var(--sky-soft);color:#2a5a9a;}
+.tag-c3{background:var(--lilac-soft);color:#5a4aaa;}
+.tag-c4{background:var(--yellow-soft);color:#7a6a10;}
+.tag-c5{background:var(--pink-soft);color:#a04080;}
+
+.list-view{display:flex;flex-direction:column;gap:0.5rem;}
+.list-item{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:0.75rem 1.2rem;display:grid;grid-template-columns:52px 70px 1fr 1fr 110px 110px 110px 90px;align-items:center;gap:1rem;cursor:pointer;transition:all 0.15s;}
+.list-item:hover{border-color:var(--blue-mid);background:var(--blue-soft);}
+.list-thumb{width:48px;height:48px;border-radius:10px;background:var(--blue-soft);display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);flex-shrink:0;overflow:hidden;}
+.list-thumb img{width:100%;height:100%;object-fit:cover;}
+.list-inv{font-size:0.7rem;color:var(--muted);font-weight:600;}
+.list-title{font-size:0.93rem;font-weight:600;color:var(--ink);}
+.list-author{font-size:0.82rem;color:var(--muted);}
+.list-type-badge{font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:0.2rem 0.6rem;border-radius:8px;display:inline-block;}
+.badge-libro{background:var(--sky-soft);color:#2a5a9a;}
+.badge-print{background:var(--mint-soft);color:#2a7a6a;}
+.badge-carta{background:var(--lilac-soft);color:#5a4aaa;}
+.badge-otro{background:var(--blue-soft);color:#2a6aaa;}
+.list-price{font-size:0.8rem;font-weight:700;color:var(--accent);}
+.list-header{display:grid;grid-template-columns:52px 70px 1fr 1fr 110px 110px 110px 90px;gap:1rem;padding:0.4rem 1.2rem;font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.2rem;}
+
+.condition{font-size:0.67rem;font-weight:700;padding:0.2rem 0.55rem;border-radius:8px;}
+.cond-excelente{background:var(--mint-soft);color:#2a7a5a;}
+.cond-buena{background:var(--yellow-soft);color:#8a6a00;}
+.cond-regular{background:var(--pink-soft);color:#a04070;}
+.cond-restauracion{background:#fce8e8;color:#a02020;}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(30,48,72,0.55);z-index:500;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px);}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);width:100%;max-width:880px;max-height:92vh;overflow-y:auto;border-radius:20px;border:1.5px solid var(--border);box-shadow:0 24px 64px rgba(30,48,72,0.22);animation:slideUp 0.25s cubic-bezier(.22,.68,0,1.2);}
+@keyframes slideUp{from{transform:translateY(24px) scale(0.98);opacity:0}to{transform:none;opacity:1}}
+.modal-header{position:sticky;top:0;background:var(--surface);padding:1.1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--blue);z-index:10;border-radius:20px 20px 0 0;}
+.modal-header h2{font-size:1.1rem;font-weight:700;color:var(--ink);}
+.modal-close{background:var(--blue-soft);border:none;color:var(--accent);font-size:1rem;cursor:pointer;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.modal-close:hover{background:var(--blue);color:white;}
+.modal-body{padding:1.5rem;}
+
+.photo-section{margin-bottom:1.5rem;}
+.photo-grid{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;}
+.photo-thumb{width:100px;height:80px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;position:relative;overflow:hidden;}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;}
+.photo-del{position:absolute;top:4px;right:4px;background:rgba(176,64,106,0.85);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:0.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s;}
+.photo-thumb:hover .photo-del{opacity:1;}
+.photo-add{width:100px;height:80px;border:2px dashed var(--blue);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:0.7rem;gap:0.25rem;transition:all 0.15s;background:var(--blue-soft);font-weight:600;}
+.photo-add:hover{border-color:var(--accent);color:var(--accent);}
+.photo-add .plus{font-size:1.4rem;font-weight:300;color:var(--accent);}
+
+.form-section{margin-bottom:1.25rem;border:1.5px solid var(--border);border-radius:14px;overflow:hidden;}
+.form-section-header{background:var(--blue-soft);padding:0.65rem 1rem;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);}
+.form-section-header:hover{background:var(--blue);}
+.form-section-body{padding:1.1rem;display:none;}
+.form-section-body.open{display:block;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.9rem;}
+.form-group{display:flex;flex-direction:column;gap:0.3rem;}
+.form-group.full{grid-column:1/-1;}
+label{font-size:0.67rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);}
+input[type=text],input[type=number],input[type=date],select,textarea{font-family:'Source Sans 3',sans-serif;font-size:0.93rem;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:0.5rem 0.75rem;color:var(--ink);outline:none;transition:all 0.2s;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(58,134,200,0.12);background:white;}
+textarea{resize:vertical;min-height:70px;}
+.checkbox-row{display:flex;align-items:center;gap:0.5rem;margin-top:0.2rem;}
+.checkbox-row input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;}
+.checkbox-row label{text-transform:none;letter-spacing:0;font-size:0.88rem;font-weight:400;color:var(--ink);cursor:pointer;}
+
+.tags-container{min-height:42px;border:1.5px solid var(--border);border-radius:10px;padding:0.35rem 0.6rem;display:flex;flex-wrap:wrap;gap:0.35rem;align-items:center;background:var(--bg);cursor:text;transition:all 0.2s;}
+.tags-container:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(58,134,200,0.12);}
+.tag-item{background:var(--blue-soft);color:var(--accent);font-size:0.72rem;font-weight:600;padding:0.18rem 0.5rem;border-radius:8px;display:flex;align-items:center;gap:0.3rem;}
+.tag-remove{cursor:pointer;opacity:0.5;font-size:0.65rem;}
+.tag-remove:hover{opacity:1;}
+.tag-input{border:none;background:transparent;outline:none;font-family:'Source Sans 3',sans-serif;font-size:0.85rem;min-width:80px;color:var(--ink);}
+
+.modal-actions{display:flex;justify-content:flex-end;gap:0.65rem;padding-top:1rem;border-top:1.5px solid var(--border);margin-top:1rem;}
+
+.detail-photos{display:flex;gap:0.75rem;overflow-x:auto;padding-bottom:0.5rem;margin-bottom:1.5rem;}
+.detail-photo{height:200px;border-radius:12px;border:1.5px solid var(--border);cursor:pointer;flex-shrink:0;}
+.detail-sections{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+.detail-block-title{font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);border-bottom:2px solid var(--blue-soft);padding-bottom:0.4rem;margin-bottom:0.75rem;}
+.detail-row{display:flex;justify-content:space-between;gap:1rem;margin-bottom:0.45rem;font-size:0.9rem;}
+.detail-key{color:var(--muted);font-size:0.85rem;}
+.detail-val{text-align:right;font-weight:600;max-width:60%;}
+
+.empty{text-align:center;padding:5rem 2rem;color:var(--muted);}
+.empty-flower{margin:0 auto 1rem;}
+.empty h3{font-size:1.4rem;font-weight:700;margin-bottom:0.4rem;color:var(--ink);}
+.empty p{font-size:0.9rem;margin-bottom:1.5rem;}
+
+.lightbox{display:none;position:fixed;inset:0;background:rgba(30,48,72,0.94);z-index:1000;align-items:center;justify-content:center;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:90vw;max-height:90vh;object-fit:contain;border-radius:12px;}
+.lightbox-close{position:absolute;top:1.5rem;right:1.5rem;color:white;font-size:1rem;cursor:pointer;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}
+.lightbox-close:hover{background:rgba(255,255,255,0.3);}
+
+.toast{position:fixed;bottom:2rem;right:2rem;background:var(--ink);color:white;padding:0.75rem 1.25rem;border-radius:12px;font-size:0.85rem;font-weight:600;border-left:4px solid var(--blue);z-index:999;transform:translateY(20px);opacity:0;transition:all 0.3s cubic-bezier(.22,.68,0,1.2);pointer-events:none;box-shadow:0 8px 24px rgba(30,48,72,0.25);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{border-left-color:#3a9a80;}
+.toast.error{border-left-color:#c04040;}
+
+@media(max-width:768px){
+  .sidebar{display:none}
+  .form-grid,.detail-sections{grid-template-columns:1fr}
+  .list-item{grid-template-columns:48px 1fr auto}
+  .list-header{display:none}
+  .stats-bar{flex-wrap:wrap}
+  .stat{padding:0.75rem 1rem}
+}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <svg style="margin:0 auto 1.5rem;display:block" width="80" height="80" viewBox="0 0 80 80" fill="none">
+      <circle cx="40" cy="14" r="11" fill="#b8d8f5"/>
+      <circle cx="63" cy="27" r="11" fill="#c2e8e0"/>
+      <circle cx="63" cy="53" r="11" fill="#c8d8f8"/>
+      <circle cx="40" cy="66" r="11" fill="#f0c8e0"/>
+      <circle cx="17" cy="53" r="11" fill="#fdefc0"/>
+      <circle cx="17" cy="27" r="11" fill="#deeeff"/>
+      <circle cx="40" cy="40" r="14" fill="#fff" stroke="#c8dff0" stroke-width="2"/>
+      <circle cx="40" cy="40" r="8" fill="#b8d8f5"/>
+    </svg>
+    <h1>Mi <em>Colección</em></h1>
+    <p>Catálogo personal de obras de arte, libros y piezas de colección.<br>Tus datos y fotos se guardan directamente en tu Google Drive.</p>
+    <button class="btn-google" onclick="signIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#fff" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#fff" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#fff" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#fff" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+      Acceder con Google
+    </button>
+    <p class="login-note">Solo accede a tu propio Google Drive. Los datos nunca salen de tu cuenta Google.</p>
+  </div>
+</div>
+
+<div id="sync-bar"><div class="sync-dot"></div><span id="sync-msg">Sincronizando…</span></div>
+
+<div id="app-screen">
+  <header>
+    <div class="logo">Mi <em>Colección</em></div>
+    <div class="header-right">
+      <div class="user-chip"><span id="user-name">—</span></div>
+      <button class="btn btn-ghost btn-sm" onclick="signOut()">Salir</button>
+      <button class="btn btn-primary" onclick="openForm()">+ Nueva pieza</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <nav class="sidebar">
+      <div class="sidebar-section">Colección</div>
+      <div class="nav-item active" onclick="filterType('todos',this)">Todos <span class="count" id="cnt-todos">0</span></div>
+      <div class="nav-item" onclick="filterType('libro',this)">Libros <span class="count" id="cnt-libro">0</span></div>
+      <div class="nav-item" onclick="filterType('print',this)">Prints <span class="count" id="cnt-print">0</span></div>
+      <div class="nav-item" onclick="filterType('carta',this)">Cartas <span class="count" id="cnt-carta">0</span></div>
+      <div class="nav-item" onclick="filterType('otro',this)">Otros <span class="count" id="cnt-otro">0</span></div>
+      <div class="sidebar-section" style="margin-top:auto">Drive</div>
+      <div class="nav-item" id="drive-link" style="font-size:0.8rem;color:var(--muted);cursor:pointer" onclick="openDrive()">Ver en Google Drive</div>
+    </nav>
+
+    <main class="content">
+      <div class="stats-bar">
+        <div class="stat"><span class="stat-label">Piezas totales</span><span class="stat-value" id="stat-total">0</span></div>
+        <div class="stat"><span class="stat-label">Valor adquisición</span><span class="stat-value" id="stat-compra">—</span></div>
+        <div class="stat"><span class="stat-label">Valor mercado</span><span class="stat-value" id="stat-mercado">—</span></div>
+        <div class="stat"><span class="stat-label">Valor seguro</span><span class="stat-value" id="stat-seguro">—</span></div>
+      </div>
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-box">
+            <span class="icon">⌕</span>
+            <input type="text" id="search" placeholder="Buscar título, artista, tag…" oninput="renderItems()">
+          </div>
+          <select class="filter-select" id="filter-cond" onchange="renderItems()">
+            <option value="">Todas las condiciones</option>
+            <option>Excelente</option><option>Buena</option><option>Regular</option><option>Necesita restauración</option>
+          </select>
+          <select class="filter-select" id="filter-col" onchange="renderItems()">
+            <option value="">Todas las colecciones</option>
+          </select>
+        </div>
+        <div class="view-toggle">
+          <button onclick="setView('grid')" id="btn-grid" class="active" title="Galería">⊞</button>
+          <button onclick="setView('list')" id="btn-list" title="Lista">☰</button>
+        </div>
+      </div>
+      <div id="items-container"></div>
+    </main>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div class="overlay" id="form-overlay" onclick="closeIfBg(event,'form-overlay')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="form-title">Nueva pieza</h2>
+      <button class="modal-close" onclick="closeForm()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="photo-section">
+        <label style="font-size:0.67rem;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:0.5rem;">Fotografías — se guardan en Google Drive</label>
+        <div class="photo-grid" id="photo-grid">
+          <div class="photo-add" onclick="document.getElementById('photo-input').click()"><span class="plus">+</span><span>Añadir foto</span></div>
+        </div>
+        <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="handlePhotos(event)">
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header" onclick="toggleSection(this)">Identificación <span>▾</span></div>
+        <div class="form-section-body open">
+          <div class="form-grid">
+            <div class="form-group"><label>Nº Inventario</label><input type="text" id="f-inv" placeholder="COL-001"></div>
+            <div class="form-group"><label>Tipo</label>
+              <select id="f-tipo" onchange="toggleTypeFields()">
+                <option value="libro">Libro</option><option value="print">Print</option>
+                <option value="carta">Carta de colección</option><option value="otro">Otro</option>
+              </select>
+            </div>
+            <div class="form-group full"><label>Título / Nombre</label><input type="text" id="f-titulo" placeholder="Título de la pieza"></div>
+            <div class="form-group"><label>Artista / Autor</label><input type="text" id="f-artista"></div>
+            <div class="form-group"><label>Fecha de la obra</label><input type="text" id="f-fecha-obra" placeholder="Ej: 1972, ca. 1950…"></div>
+            <div class="form-group"><label>Colección interna</label><input type="text" id="f-coleccion"></div>
+            <div class="form-group"><label>Temática</label><input type="text" id="f-tematica"></div>
+            <div class="form-group full"><label>Tags (Enter para añadir)</label>
+              <div class="tags-container" id="tags-container" onclick="document.getElementById('tag-input').focus()">
+                <input class="tag-input" id="tag-input" placeholder="tag…" onkeydown="handleTagInput(event)">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header" onclick="toggleSection(this)">Descripción y autoría <span>▾</span></div>
+        <div class="form-section-body open">
+          <div class="form-grid">
+            <div class="form-group"><label>Medio / Técnica</label><input type="text" id="f-medio"></div>
+            <div class="form-group"><label>Tamaño</label><input type="text" id="f-tamano" placeholder="60×40 cm"></div>
+            <div class="form-group"><label>Edición / Serie</label><input type="text" id="f-edicion"></div>
+            <div class="form-group"><label>Soporte / Material</label><input type="text" id="f-soporte"></div>
+            <div class="form-group"><label>Numeración</label><input type="text" id="f-numeracion" placeholder="47/200"></div>
+            <div class="form-group" style="display:flex;gap:1rem;flex-direction:column">
+              <div class="checkbox-row"><input type="checkbox" id="f-firmado"><label for="f-firmado">Firmado</label></div>
+              <div class="checkbox-row"><input type="checkbox" id="f-numerado"><label for="f-numerado">Numerado</label></div>
+              <div class="checkbox-row"><input type="checkbox" id="f-cert"><label for="f-cert">Certificado de autenticidad</label></div>
+            </div>
+          </div>
+          <div id="fields-libro">
+            <hr style="margin:1rem 0;border-color:var(--border)">
+            <div class="form-grid">
+              <div class="form-group"><label>Editorial</label><input type="text" id="f-editorial"></div>
+              <div class="form-group"><label>ISBN</label><input type="text" id="f-isbn"></div>
+              <div class="form-group"><label>Idioma</label><input type="text" id="f-idioma"></div>
+              <div class="form-group"><label>Encuadernación</label><input type="text" id="f-encuadernacion"></div>
+              <div class="form-group"><label>Ilustrador</label><input type="text" id="f-ilustrador"></div>
+              <div class="form-group"><label>Páginas</label><input type="number" id="f-paginas"></div>
+            </div>
+          </div>
+          <div id="fields-print" style="display:none">
+            <hr style="margin:1rem 0;border-color:var(--border)">
+            <div class="form-grid">
+              <div class="form-group"><label>Técnica impresión</label><input type="text" id="f-tecnica-print" placeholder="Giclée, Serigrafía…"></div>
+              <div class="form-group"><label>Tamaño con marco</label><input type="text" id="f-tamano-marco"></div>
+              <div class="form-group"><label>Enmarcado</label><select id="f-enmarcado"><option>No</option><option>Sí</option><option>Sí, con passepartout</option></select></div>
+            </div>
+          </div>
+          <div id="fields-carta" style="display:none">
+            <hr style="margin:1rem 0;border-color:var(--border)">
+            <div class="form-grid">
+              <div class="form-group"><label>Juego / Set</label><input type="text" id="f-juego"></div>
+              <div class="form-group"><label>Expansión</label><input type="text" id="f-expansion"></div>
+              <div class="form-group"><label>Rareza</label><input type="text" id="f-rareza"></div>
+              <div class="form-group"><label>Variante</label><input type="text" id="f-variante"></div>
+              <div class="form-group"><label>Nº en el set</label><input type="text" id="f-num-set"></div>
+              <div class="form-group"><label>Idioma</label><input type="text" id="f-idioma-carta"></div>
+              <div class="form-group"><label>Empresa grading</label><input type="text" id="f-grading-emp"></div>
+              <div class="form-group"><label>Nota grading</label><input type="text" id="f-grading-nota"></div>
+              <div class="form-group"><label>Protección</label><input type="text" id="f-proteccion"></div>
+              <div class="form-group"><div class="checkbox-row" style="margin-top:1.5rem"><input type="checkbox" id="f-gradeada"><label for="f-gradeada">Gradeada</label></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header" onclick="toggleSection(this)">Adquisición y valoración <span>▾</span></div>
+        <div class="form-section-body open">
+          <div class="form-grid">
+            <div class="form-group"><label>Fecha de compra</label><input type="date" id="f-fecha-compra"></div>
+            <div class="form-group"><label>Vendedor / Galería / Subasta</label><input type="text" id="f-vendedor"></div>
+            <div class="form-group"><label>Precio de compra (€)</label><input type="number" id="f-precio-compra" step="0.01"></div>
+            <div class="form-group"><label>Valor de mercado actual (€)</label><input type="number" id="f-precio-mercado" step="0.01"></div>
+            <div class="form-group"><label>Valor a efectos de seguro (€)</label><input type="number" id="f-precio-seguro" step="0.01"></div>
+            <div class="form-group full"><label>Historial de procedencia</label><textarea id="f-procedencia"></textarea></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header" onclick="toggleSection(this)">Conservación <span>▾</span></div>
+        <div class="form-section-body open">
+          <div class="form-grid">
+            <div class="form-group"><label>Condición</label><select id="f-condicion"><option>Excelente</option><option>Buena</option><option>Regular</option><option>Necesita restauración</option></select></div>
+            <div class="form-group full"><label>Notas sobre conservación</label><textarea id="f-notas-conservacion"></textarea></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header" onclick="toggleSection(this)">Ubicación <span>▾</span></div>
+        <div class="form-section-body open">
+          <div class="form-grid">
+            <div class="form-group"><label>Estado actual</label><select id="f-estado-ubicacion"><option>En casa</option><option>Prestado</option><option>En restauración</option><option>En depósito / galería</option><option>En tránsito</option></select></div>
+            <div class="form-group"><label>Inmueble</label><input type="text" id="f-inmueble" list="list-inmueble"><datalist id="list-inmueble"></datalist></div>
+            <div class="form-group"><label>Estancia</label><input type="text" id="f-estancia" list="list-estancia"><datalist id="list-estancia"></datalist></div>
+            <div class="form-group"><label>Mueble / Zona</label><input type="text" id="f-mueble"></div>
+            <div class="form-group full"><label>Posición exacta</label><input type="text" id="f-posicion"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-header" onclick="toggleSection(this)">Notas libres <span>▾</span></div>
+        <div class="form-section-body open">
+          <div class="form-group"><textarea id="f-notas" style="min-height:90px"></textarea></div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeForm()">Cancelar</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete" onclick="deleteItem()" style="display:none">Eliminar pieza</button>
+        <button class="btn btn-primary" onclick="saveItem()">Guardar en Drive</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detail-overlay" onclick="closeIfBg(event,'detail-overlay')">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="detail-title">—</h2>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <button class="btn btn-ghost btn-sm" onclick="editCurrent()">Editar</button>
+        <button class="modal-close" onclick="closeDetail()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+const CLIENT_ID='177392680226-iaanfi834ntf73ppmu2d7gm7ueq4t2ho.apps.googleusercontent.com';
+const SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
+const SHEET_NAME='Mi Coleccion - Catalogo';
+const FOLDER_NAME='Mi Coleccion - Fotos';
+
+let accessToken=null,sheetId=null,folderId=null,items=[],sheetGid=0;
+let currentView='grid',currentFilter='todos',editingId=null,currentTags=[],currentPhotos=[],currentDetailId=null;
+
+function signIn(){
+  const client=google.accounts.oauth2.initTokenClient({
+    client_id:CLIENT_ID,scope:SCOPES,
+    callback:async(resp)=>{
+      if(resp.error){toast('Error: '+resp.error,'error');return;}
+      accessToken=resp.access_token;
+      const info=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+accessToken}}).then(r=>r.json());
+      document.getElementById('user-name').textContent=info.name||info.email;
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('app-screen').classList.add('show');
+      await initDrive();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function signOut(){
+  google.accounts.oauth2.revoke(accessToken,()=>{
+    accessToken=null;sheetId=null;folderId=null;items=[];
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app-screen').classList.remove('show');
+  });
+}
+
+async function api(url,opts={}){
+  const res=await fetch(url,{...opts,headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json',...(opts.headers||{})}});
+  if(!res.ok){const e=await res.json().catch(()=>({error:{message:res.statusText}}));throw new Error(e.error?.message||res.statusText);}
+  return res.json();
+}
+async function sheets(path,opts={}){return api('https://sheets.googleapis.com/v4/spreadsheets/'+sheetId+'/'+path,opts);}
+
+async function initDrive(){
+  showSync('Conectando con Google Drive…');
+  try{
+    folderId=await getOrCreate(FOLDER_NAME,'application/vnd.google-apps.folder');
+    sheetId=await getOrCreate(SHEET_NAME,'application/vnd.google-apps.spreadsheet');
+    const meta=await sheets('');
+    sheetGid=meta.sheets[0].properties.sheetId;
+    await loadItems();
+    hideSync();
+    toast('Conectado a Google Drive','success');
+  }catch(e){hideSync();toast('Error Drive: '+e.message,'error');console.error(e);}
+}
+
+async function getOrCreate(name,mimeType){
+  const q=`name='${name}' and mimeType='${mimeType}' and trashed=false`;
+  const res=await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  if(res.files&&res.files.length)return res.files[0].id;
+  const f=await api('https://www.googleapis.com/drive/v3/files',{method:'POST',body:JSON.stringify({name,mimeType})});
+  if(mimeType==='application/vnd.google-apps.spreadsheet'){
+    await api('https://sheets.googleapis.com/v4/spreadsheets/'+f.id+'/values/A1:append?valueInputOption=RAW',{method:'POST',body:JSON.stringify({values:[getHeaders()]})});
+  }
+  return f.id;
+}
+
+function getHeaders(){return['id','inv','tipo','titulo','artista','fechaObra','coleccion','tematica','medio','tamano','edicion','soporte','numeracion','firmado','numerado','cert','tags','fechaCompra','vendedor','precioCompra','precioMercado','precioSeguro','procedencia','condicion','notasConservacion','estadoUbicacion','inmueble','estancia','mueble','posicion','notas','editorial','isbn','idioma','encuadernacion','ilustrador','paginas','tecnicaPrint','tamanoMarco','enmarcado','juego','expansion','rareza','variante','numSet','idiomaCarta','gradeada','gradingEmp','gradingNota','proteccion','photoIds'];}
+
+function itemToRow(item){return getHeaders().map(k=>{if(k==='tags')return(item.tags||[]).join(',');if(k==='photoIds')return JSON.stringify(item.photoIds||[]);if(typeof item[k]==='boolean')return item[k]?'true':'false';return item[k]!=null?String(item[k]):''});}
+
+function rowToItem(row,headers){
+  const item={};
+  headers.forEach((h,i)=>{
+    const v=row[i]||'';
+    if(h==='tags')item[h]=v?v.split(',').map(t=>t.trim()):[];
+    else if(h==='photoIds'){try{item[h]=JSON.parse(v);}catch{item[h]=[];}}
+    else if(['firmado','numerado','cert','gradeada'].includes(h))item[h]=v==='true';
+    else if(['precioCompra','precioMercado','precioSeguro'].includes(h))item[h]=v?parseFloat(v):null;
+    else if(h==='paginas')item[h]=v?parseInt(v):null;
+    else item[h]=v;
+  });
+  item.photos=(item.photoIds||[]).map(id=>thumbUrl(id));
+  return item;
+}
+
+function thumbUrl(id){return'https://drive.google.com/thumbnail?id='+id+'&sz=w400';}
+function fullUrl(id){return'https://lh3.googleusercontent.com/d/'+id;}
+
+async function loadItems(){
+  showSync('Cargando catálogo…');
+  const res=await sheets('values/A1:AZ10000');
+  const rows=res.values||[];
+  items=rows.length<2?[]:rows.slice(1).filter(r=>r[0]).map(r=>rowToItem(r,rows[0]));
+  updateUI();hideSync();
+}
+
+async function saveItemToSheet(item,isNew){
+  showSync(isNew?'Guardando nueva pieza…':'Actualizando pieza…');
+  if(isNew){
+    await sheets('values/A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',{method:'POST',body:JSON.stringify({values:[itemToRow(item)]})});
+  }else{
+    const res=await sheets('values/A1:A10000');
+    const rows=res.values||[];
+    const idx=rows.findIndex(r=>r[0]===item.id);
+    if(idx<1){toast('Fila no encontrada','error');hideSync();return;}
+    const n=idx+1;
+    const end=String.fromCharCode(65+getHeaders().length-1);
+    await sheets('values/A'+n+':'+end+n+'?valueInputOption=RAW',{method:'PUT',body:JSON.stringify({values:[itemToRow(item)]})});
+  }
+  hideSync();
+}
+
+async function deleteItemFromSheet(id){
+  showSync('Eliminando…');
+  const res=await sheets('values/A1:A10000');
+  const rows=res.values||[];
+  const idx=rows.findIndex(r=>r[0]===id);
+  if(idx<1){hideSync();return;}
+  await sheets('batchUpdate',{method:'POST',body:JSON.stringify({requests:[{deleteDimension:{range:{sheetId:sheetGid,dimension:'ROWS',startIndex:idx,endIndex:idx+1}}}]})});
+  hideSync();
+}
+
+async function uploadPhoto(file){
+  showSync('Subiendo foto a Drive…');
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify({name:file.name,parents:[folderId]})],{type:'application/json'}));
+  form.append('file',file);
+  const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form});
+  if(!res.ok)throw new Error('Error subiendo foto');
+  const d=await res.json();
+  hideSync();return d.id;
+}
+
+function updateUI(){updateCounts();updateStats();updateCollectionFilter();updateLocationDatalist();renderItems();}
+
+function renderItems(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const cond=document.getElementById('filter-cond').value;
+  const col=document.getElementById('filter-col').value;
+  let filtered=items.filter(item=>{
+    const mt=currentFilter==='todos'||item.tipo===currentFilter;
+    const mq=!q||[item.titulo,item.artista,item.inv,item.tematica,(item.tags||[]).join(' ')].join(' ').toLowerCase().includes(q);
+    const mc=!cond||item.condicion===cond;
+    const ml=!col||item.coleccion===col;
+    return mt&&mq&&mc&&ml;
+  });
+  const c=document.getElementById('items-container');
+  if(!filtered.length){
+    c.innerHTML='<div class="empty"><svg class="empty-flower" width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="12" r="9" fill="#b8d8f5"/><circle cx="52" cy="22" r="9" fill="#c2e8e0"/><circle cx="52" cy="42" r="9" fill="#c8d8f8"/><circle cx="32" cy="52" r="9" fill="#f0c8e0"/><circle cx="12" cy="42" r="9" fill="#fdefc0"/><circle cx="12" cy="22" r="9" fill="#deeeff"/><circle cx="32" cy="32" r="11" fill="#fff" stroke="#c8dff0" stroke-width="2"/><circle cx="32" cy="32" r="6" fill="#b8d8f5"/></svg><h3>Tu colección está vacía</h3><p>Añade tu primera pieza con el botón <strong>+ Nueva pieza</strong></p></div>';
+    return;
+  }
+  if(currentView==='grid'){c.innerHTML='<div class="grid">'+filtered.map(cardHTML).join('')+'</div>';}
+  else{c.innerHTML='<div class="list-header"><span></span><span>Ref</span><span>Título</span><span>Artista/Autor</span><span>Tipo</span><span>Precio compra</span><span>Valor mercado</span><span>Condición</span></div><div class="list-view">'+filtered.map(listItemHTML).join('')+'</div>';}
+}
+
+function dot(t){const c={libro:'#b8d8f5',print:'#f0c8e0',carta:'#c2e8e0',otro:'#c8d8f8'};return '<div style="width:32px;height:32px;border-radius:50%;background:'+(c[t]||'#deeeff')+'"></div>';}
+function badge(t){const cl={libro:'badge-libro',print:'badge-print',carta:'badge-carta',otro:'badge-otro'}[t]||'badge-otro';return '<span class="list-type-badge '+cl+'">'+t+'</span>';}
+
+function cardHTML(item){
+  const src=item.photos&&item.photos[0];
+  const img=src?'<div class="card-img"><img src="'+src+'" alt="'+item.titulo+'" loading="lazy" onerror="this.style.display=\'none\'"></div>':'<div class="card-img">'+dot(item.tipo)+'</div>';
+  const tc=['tag-c0','tag-c1','tag-c2','tag-c3','tag-c4','tag-c5'];
+  const tags=(item.tags||[]).slice(0,3).map((t,i)=>'<span class="tag '+tc[i%6]+'">'+t+'</span>').join('');
+  return '<div class="card" onclick="openDetail(\''+item.id+'\')">'+img+'<div class="card-body"><div class="card-type">'+(item.tipo||'—')+'</div><div class="card-title">'+(item.titulo||'Sin título')+'</div><div class="card-sub">'+(item.artista||'—')+'</div><div style="margin-top:0.4rem">'+tags+'</div><div class="card-meta"><span class="card-inv">'+(item.inv||'—')+'</span><span class="card-price">'+(item.precioMercado?fmtEur(item.precioMercado):'—')+'</span></div></div></div>';
+}
+
+function listItemHTML(item){
+  const src=item.photos&&item.photos[0];
+  const thumb=src?'<div class="list-thumb"><img src="'+src+'" alt="" onerror="this.style.display=\'none\'"></div>':'<div class="list-thumb">'+dot(item.tipo)+'</div>';
+  const cc={'Excelente':'cond-excelente','Buena':'cond-buena','Regular':'cond-regular','Necesita restauración':'cond-restauracion'}[item.condicion]||'';
+  return '<div class="list-item" onclick="openDetail(\''+item.id+'\')">'+thumb+'<span class="list-inv">'+(item.inv||'—')+'</span><div><div class="list-title">'+(item.titulo||'Sin título')+'</div></div><div class="list-author">'+(item.artista||'—')+'</div>'+badge(item.tipo)+'<span class="list-price">'+(item.precioCompra?fmtEur(item.precioCompra):'—')+'</span><span class="list-price">'+(item.precioMercado?fmtEur(item.precioMercado):'—')+'</span><span class="condition '+cc+'">'+(item.condicion||'—')+'</span></div>';
+}
+
+function fmtEur(v){return new Intl.NumberFormat('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);}
+function updateCounts(){document.getElementById('cnt-todos').textContent=items.length;['libro','print','carta','otro'].forEach(t=>{const el=document.getElementById('cnt-'+t);if(el)el.textContent=items.filter(i=>i.tipo===t).length;});}
+function updateStats(){document.getElementById('stat-total').textContent=items.length;const s=k=>items.reduce((a,i)=>a+(parseFloat(i[k])||0),0),c=s('precioCompra'),m=s('precioMercado'),sg=s('precioSeguro');document.getElementById('stat-compra').textContent=c?fmtEur(c):'—';document.getElementById('stat-mercado').textContent=m?fmtEur(m):'—';document.getElementById('stat-seguro').textContent=sg?fmtEur(sg):'—';}
+function updateCollectionFilter(){const cols=[...new Set(items.map(i=>i.coleccion).filter(Boolean))];const sel=document.getElementById('filter-col');const cur=sel.value;sel.innerHTML='<option value="">Todas las colecciones</option>'+cols.map(c=>'<option '+(c===cur?'selected':'')+'>'+c+'</option>').join('');}
+function updateLocationDatalist(){document.getElementById('list-inmueble').innerHTML=[...new Set(items.map(i=>i.inmueble).filter(Boolean))].map(v=>'<option value="'+v+'">').join('');document.getElementById('list-estancia').innerHTML=[...new Set(items.map(i=>i.estancia).filter(Boolean))].map(v=>'<option value="'+v+'">').join('');}
+function filterType(t,el){currentFilter=t;document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));el.classList.add('active');renderItems();}
+function setView(v){currentView=v;document.getElementById('btn-grid').classList.toggle('active',v==='grid');document.getElementById('btn-list').classList.toggle('active',v==='list');renderItems();}
+function openDrive(){if(folderId)window.open('https://drive.google.com/drive/folders/'+folderId,'_blank');}
+
+function openForm(id=null){
+  editingId=id;currentPhotos=[];
+  const item=id?items.find(i=>i.id===id):null;
+  document.getElementById('form-title').textContent=id?'Editar pieza':'Nueva pieza';
+  document.getElementById('btn-delete').style.display=id?'inline-flex':'none';
+  ['inv','titulo','artista','fecha-obra','coleccion','tematica','medio','tamano','edicion','soporte','numeracion','editorial','isbn','idioma','encuadernacion','ilustrador','vendedor','procedencia','notas-conservacion','notas','inmueble','estancia','mueble','posicion','tecnica-print','tamano-marco','juego','expansion','rareza','variante','num-set','idioma-carta','grading-emp','grading-nota','proteccion'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||''):''});
+  ['firmado','numerado','cert','gradeada'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.checked=item?!!item[k]:false});
+  ['tipo','condicion','estado-ubicacion','enmarcado'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||el.options[0].value):el.options[0].value});
+  ['precio-compra','precio-mercado','precio-seguro','paginas'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||''):''});
+  const fd=document.getElementById('f-fecha-compra');if(fd)fd.value=item?(item.fechaCompra||''):'';
+  currentTags=item?[...(item.tags||[])]:[];renderTagsUI();
+  currentPhotos=item?(item.photoIds||[]).map((did,i)=>({driveId:did,src:thumbUrl(did),name:'foto'+(i+1)})):[];
+  renderPhotosUI();toggleTypeFields();
+  document.getElementById('form-overlay').classList.add('open');
+}
+function closeForm(){document.getElementById('form-overlay').classList.remove('open');}
+function toggleTypeFields(){const t=document.getElementById('f-tipo').value;document.getElementById('fields-libro').style.display=t==='libro'?'block':'none';document.getElementById('fields-print').style.display=t==='print'?'block':'none';document.getElementById('fields-carta').style.display=t==='carta'?'block':'none';}
+function g(id){return document.getElementById(id)?.value||'';}
+function gc(id){return document.getElementById(id)?.checked||false;}
+
+async function saveItem(){
+  const titulo=g('f-titulo');if(!titulo){toast('El título es obligatorio');return;}
+  const isNew=!editingId;
+  const id=editingId||Date.now().toString(36)+Math.random().toString(36).slice(2);
+  let photoIds=currentPhotos.filter(p=>p.driveId).map(p=>p.driveId);
+  for(const p of currentPhotos.filter(p=>!p.driveId&&p.file)){
+    try{const did=await uploadPhoto(p.file);photoIds.push(did);}catch(e){toast('Error foto: '+e.message,'error');}
+  }
+  const tipo=g('f-tipo');
+  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds.map(did=>thumbUrl(did)),editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion')};
+  if(isNew)items.push(item);else{const idx=items.findIndex(i=>i.id===id);items[idx]=item;}
+  await saveItemToSheet(item,isNew);
+  updateUI();closeForm();
+  toast(isNew?'Pieza guardada en Drive':'Pieza actualizada en Drive','success');
+}
+
+async function deleteItem(){
+  if(!confirm('¿Eliminar esta pieza del catálogo?'))return;
+  await deleteItemFromSheet(editingId);
+  items=items.filter(i=>i.id!==editingId);
+  updateUI();closeForm();toast('Pieza eliminada');
+}
+
+function openDetail(id){
+  currentDetailId=id;
+  const item=items.find(i=>i.id===id);if(!item)return;
+  document.getElementById('detail-title').textContent=item.titulo||'Sin título';
+  const cc={'Excelente':'cond-excelente','Buena':'cond-buena','Regular':'cond-regular','Necesita restauración':'cond-restauracion'}[item.condicion]||'';
+  const photos=(item.photoIds||[]).map(fid=>'<img class="detail-photo" src="'+thumbUrl(fid)+'" onclick="openLightbox(\''+fullUrl(fid)+'\')" alt="">').join('');
+  const row=(k,v)=>v?'<div class="detail-row"><span class="detail-key">'+k+'</span><span class="detail-val">'+v+'</span></div>':'';
+  const chk=v=>v?'Sí':'No';
+  let sp='';
+  if(item.tipo==='libro')sp=row('Editorial',item.editorial)+row('ISBN',item.isbn)+row('Idioma',item.idioma)+row('Encuadernación',item.encuadernacion)+row('Ilustrador',item.ilustrador)+row('Páginas',item.paginas);
+  else if(item.tipo==='print')sp=row('Técnica',item.tecnicaPrint)+row('Tamaño marco',item.tamanoMarco)+row('Enmarcado',item.enmarcado);
+  else if(item.tipo==='carta')sp=row('Juego/Set',item.juego)+row('Expansión',item.expansion)+row('Rareza',item.rareza)+row('Variante',item.variante)+row('Gradeada',chk(item.gradeada))+row('Empresa grading',item.gradingEmp)+row('Nota grading',item.gradingNota)+row('Protección',item.proteccion);
+  const tags=(item.tags||[]).map(t=>'<span class="tag tag-c0">'+t+'</span>').join('')||'—';
+  document.getElementById('detail-body').innerHTML=(photos?'<div class="detail-photos">'+photos+'</div>':'')+'<div class="detail-sections"><div><div class="detail-block-title">Identificación</div>'+row('Nº inventario',item.inv)+row('Tipo',item.tipo)+row('Artista/Autor',item.artista)+row('Fecha obra',item.fechaObra)+row('Colección',item.coleccion)+row('Temática',item.tematica)+'<div class="detail-row"><span class="detail-key">Tags</span><span class="detail-val" style="text-align:right">'+tags+'</span></div><div class="detail-block-title" style="margin-top:1.25rem">Descripción</div>'+row('Medio/Técnica',item.medio)+row('Tamaño',item.tamano)+row('Edición',item.edicion)+row('Soporte',item.soporte)+row('Numeración',item.numeracion)+row('Firmado',chk(item.firmado))+row('Numerado',chk(item.numerado))+row('Certificado',chk(item.cert))+sp+'</div><div><div class="detail-block-title">Adquisición y valor</div>'+row('Fecha compra',item.fechaCompra)+row('Vendedor',item.vendedor)+row('Precio compra',item.precioCompra?fmtEur(item.precioCompra):null)+row('Valor mercado',item.precioMercado?fmtEur(item.precioMercado):null)+row('Valor seguro',item.precioSeguro?fmtEur(item.precioSeguro):null)+(item.procedencia?'<div style="margin-top:0.5rem;font-size:0.85rem;color:var(--muted);line-height:1.5">'+item.procedencia+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Conservación</div><div class="detail-row"><span class="detail-key">Condición</span><span class="condition '+cc+'">'+item.condicion+'</span></div>'+(item.notasConservacion?'<div style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem">'+item.notasConservacion+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Ubicación</div>'+row('Estado',item.estadoUbicacion)+row('Inmueble',item.inmueble)+row('Estancia',item.estancia)+row('Mueble/Zona',item.mueble)+row('Posición exacta',item.posicion)+(item.notas?'<div class="detail-block-title" style="margin-top:1.25rem">Notas</div><div style="font-size:0.85rem;line-height:1.6">'+item.notas+'</div>':'')+(folderId?'<div style="margin-top:1.25rem"><a href="https://drive.google.com/drive/folders/'+folderId+'" target="_blank" style="font-size:0.8rem;color:var(--accent)">Ver carpeta de fotos en Drive →</a></div>':'')+'</div></div>';
+  document.getElementById('detail-overlay').classList.add('open');
+}
+function closeDetail(){document.getElementById('detail-overlay').classList.remove('open');}
+function editCurrent(){closeDetail();openForm(currentDetailId);}
+
+function handlePhotos(e){Array.from(e.target.files).forEach(file=>{const reader=new FileReader();reader.onload=ev=>{currentPhotos.push({file,src:ev.target.result,name:file.name});renderPhotosUI();};reader.readAsDataURL(file);});e.target.value='';}
+function renderPhotosUI(){const grid=document.getElementById('photo-grid');const thumbs=currentPhotos.map((p,i)=>'<div class="photo-thumb"><img src="'+p.src+'" alt="">'+(p.driveId?'':'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(58,134,200,0.8);color:white;font-size:0.55rem;text-align:center;padding:2px">Por subir</div>')+'<button class="photo-del" onclick="removePhoto('+i+')">✕</button></div>').join('');grid.innerHTML=thumbs+'<div class="photo-add" onclick="document.getElementById(\'photo-input\').click()"><span class="plus">+</span><span>Añadir</span></div>';}
+function removePhoto(i){currentPhotos.splice(i,1);renderPhotosUI();}
+
+function renderTagsUI(){const c=document.getElementById('tags-container'),inp=document.getElementById('tag-input');c.innerHTML=currentTags.map((t,i)=>'<span class="tag-item">'+t+'<span class="tag-remove" onclick="removeTag('+i+')">✕</span></span>').join('');c.appendChild(inp);}
+function handleTagInput(e){if(e.key==='Enter'||e.key===','){e.preventDefault();const v=e.target.value.trim().replace(/,$/,'');if(v&&!currentTags.includes(v)){currentTags.push(v);renderTagsUI();}e.target.value='';}if(e.key==='Backspace'&&!e.target.value&&currentTags.length){currentTags.pop();renderTagsUI();}}
+function removeTag(i){currentTags.splice(i,1);renderTagsUI();}
+function toggleSection(h){const b=h.nextElementSibling;b.classList.toggle('open');h.querySelector('span:last-child').textContent=b.classList.contains('open')?'▾':'▸';}
+function openLightbox(src){document.getElementById('lightbox-img').src=src;document.getElementById('lightbox').classList.add('open');}
+function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
+function showSync(msg){const b=document.getElementById('sync-bar');b.classList.add('show');document.getElementById('sync-msg').textContent=msg;}
+function hideSync(){document.getElementById('sync-bar').classList.remove('show');}
+function closeIfBg(e,id){if(e.target.id===id)document.getElementById(id).classList.remove('open');}
+function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type==='success'?'success':type==='error'?'error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+</script>
+</body>
+</html>
