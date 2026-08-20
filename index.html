@@ -308,6 +308,7 @@ textarea{resize:vertical;min-height:70px;}
             <div class="form-group"><label>Artista / Autor</label><input type="text" id="f-artista"></div>
             <div class="form-group"><label>Fecha de la obra</label><input type="text" id="f-fecha-obra" placeholder="Ej: 1972, ca. 1950…"></div>
             <div class="form-group"><label>Colección interna</label><input type="text" id="f-coleccion"></div>
+            <div class="form-group"><label>Serie / Obra mayor</label><input type="text" id="f-serie" placeholder="Tan Tan Bo / Superflat"></div>
             <div class="form-group"><label>Temática</label><input type="text" id="f-tematica"></div>
             <div class="form-group full"><label>Tags (Enter para añadir)</label>
               <div class="tags-container" id="tags-container" onclick="document.getElementById('tag-input').focus()">
@@ -379,6 +380,9 @@ textarea{resize:vertical;min-height:70px;}
             <div class="form-group"><label>Precio de compra (€)</label><input type="number" id="f-precio-compra" step="0.01"></div>
             <div class="form-group"><label>Valor de mercado actual (€)</label><input type="number" id="f-precio-mercado" step="0.01"></div>
             <div class="form-group"><label>Valor a efectos de seguro (€)</label><input type="number" id="f-precio-seguro" step="0.01"></div>
+            <div class="form-group"><label>Editor / Impresor</label><input type="text" id="f-editor" placeholder="Kaikai Kiki Co., Ltd."></div>
+            <div class="form-group"><label>Ref. catálogo razonado</label><input type="text" id="f-ref-catalogo-razonado" placeholder="Michler &amp; Löpsinger 1078"></div>
+            <div class="form-group full"><label>Documentación (IDs de Drive, separados por comas)</label><input type="text" id="f-doc-ids" placeholder="certificados, facturas, notas de prensa"></div>
             <div class="form-group full"><label>Historial de procedencia</label><textarea id="f-procedencia"></textarea></div>
           </div>
         </div>
@@ -508,16 +512,17 @@ async function getOrCreate(name,mimeType){
   return f.id;
 }
 
-function getHeaders(){return['id','inv','tipo','titulo','artista','fechaObra','coleccion','tematica','medio','tamano','edicion','soporte','numeracion','firmado','numerado','cert','tags','fechaCompra','vendedor','precioCompra','precioMercado','precioSeguro','procedencia','condicion','notasConservacion','estadoUbicacion','inmueble','estancia','mueble','posicion','notas','editorial','isbn','idioma','encuadernacion','ilustrador','paginas','tecnicaPrint','tamanoMarco','enmarcado','juego','expansion','rareza','variante','numSet','idiomaCarta','gradeada','gradingEmp','gradingNota','proteccion','photoIds'];}
+function colLetter(n){let s='';while(n>0){const r=(n-1)%26;s=String.fromCharCode(65+r)+s;n=Math.floor((n-1)/26);}return s;}
+function getHeaders(){return['id','inv','tipo','titulo','artista','fechaObra','coleccion','tematica','medio','tamano','edicion','soporte','numeracion','firmado','numerado','cert','tags','fechaCompra','vendedor','precioCompra','precioMercado','precioSeguro','procedencia','condicion','notasConservacion','estadoUbicacion','inmueble','estancia','mueble','posicion','notas','editorial','isbn','idioma','encuadernacion','ilustrador','paginas','tecnicaPrint','tamanoMarco','enmarcado','juego','expansion','rareza','variante','numSet','idiomaCarta','gradeada','gradingEmp','gradingNota','proteccion','photoIds','serie','refCatalogoRazonado','editor','docIds'];}
 
-function itemToRow(item){return getHeaders().map(k=>{if(k==='tags')return(item.tags||[]).join(',');if(k==='photoIds')return JSON.stringify(item.photoIds||[]);if(typeof item[k]==='boolean')return item[k]?'true':'false';return item[k]!=null?String(item[k]):''});}
+function itemToRow(item){return getHeaders().map(k=>{if(k==='tags')return(item.tags||[]).join(',');if(k==='photoIds'||k==='docIds')return JSON.stringify(item[k]||[]);if(typeof item[k]==='boolean')return item[k]?'true':'false';return item[k]!=null?String(item[k]):''});}
 
 function rowToItem(row,headers){
   const item={};
   headers.forEach((h,i)=>{
     const v=row[i]||'';
     if(h==='tags')item[h]=v?v.split(',').map(t=>t.trim()):[];
-    else if(h==='photoIds'){try{item[h]=JSON.parse(v);}catch{item[h]=[];}}
+    else if(h==='photoIds'||h==='docIds'){try{item[h]=JSON.parse(v);}catch{item[h]=[];}}
     else if(['firmado','numerado','cert','gradeada'].includes(h))item[h]=v==='true';
     else if(['precioCompra','precioMercado','precioSeguro'].includes(h))item[h]=v?parseFloat(v):null;
     else if(h==='paginas')item[h]=v?parseInt(v):null;
@@ -532,7 +537,7 @@ function fullUrl(id){return'https://lh3.googleusercontent.com/d/'+id;}
 
 async function loadItems(){
   showSync('Cargando catálogo…');
-  const res=await sheets('values/A1:AZ10000');
+  const res=await sheets('values/A1:BH10000');
   const rows=res.values||[];
   items=rows.length<2?[]:rows.slice(1).filter(r=>r[0]).map(r=>rowToItem(r,rows[0]));
   updateUI();hideSync();
@@ -548,7 +553,7 @@ async function saveItemToSheet(item,isNew){
     const idx=rows.findIndex(r=>r[0]===item.id);
     if(idx<1){toast('Fila no encontrada','error');hideSync();return;}
     const n=idx+1;
-    const end=String.fromCharCode(65+getHeaders().length-1);
+    const end=colLetter(getHeaders().length);
     await sheets('values/A'+n+':'+end+n+'?valueInputOption=RAW',{method:'PUT',body:JSON.stringify({values:[itemToRow(item)]})});
   }
   hideSync();
@@ -629,10 +634,11 @@ function openForm(id=null){
   const item=id?items.find(i=>i.id===id):null;
   document.getElementById('form-title').textContent=id?'Editar pieza':'Nueva pieza';
   document.getElementById('btn-delete').style.display=id?'inline-flex':'none';
-  ['inv','titulo','artista','fecha-obra','coleccion','tematica','medio','tamano','edicion','soporte','numeracion','editorial','isbn','idioma','encuadernacion','ilustrador','vendedor','procedencia','notas-conservacion','notas','inmueble','estancia','mueble','posicion','tecnica-print','tamano-marco','juego','expansion','rareza','variante','num-set','idioma-carta','grading-emp','grading-nota','proteccion'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||''):''});
+  ['inv','titulo','artista','fecha-obra','coleccion','tematica','medio','tamano','edicion','soporte','numeracion','editorial','isbn','idioma','encuadernacion','ilustrador','vendedor','procedencia','notas-conservacion','notas','inmueble','estancia','mueble','posicion','tecnica-print','tamano-marco','juego','expansion','rareza','variante','num-set','idioma-carta','grading-emp','grading-nota','proteccion','serie','ref-catalogo-razonado','editor'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||''):''});
   ['firmado','numerado','cert','gradeada'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.checked=item?!!item[k]:false});
   ['tipo','condicion','estado-ubicacion','enmarcado'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||el.options[0].value):el.options[0].value});
   ['precio-compra','precio-mercado','precio-seguro','paginas'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||''):''});
+  const dd=document.getElementById('f-doc-ids');if(dd)dd.value=item?((item.docIds||[]).join(', ')):'';
   const fd=document.getElementById('f-fecha-compra');if(fd)fd.value=item?(item.fechaCompra||''):'';
   currentTags=item?[...(item.tags||[])]:[];renderTagsUI();
   currentPhotos=item?(item.photoIds||[]).map((did,i)=>({driveId:did,src:thumbUrl(did),name:'foto'+(i+1)})):[];
@@ -653,7 +659,7 @@ async function saveItem(){
     try{const did=await uploadPhoto(p.file);photoIds.push(did);}catch(e){toast('Error foto: '+e.message,'error');}
   }
   const tipo=g('f-tipo');
-  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds.map(did=>thumbUrl(did)),editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion')};
+  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds.map(did=>thumbUrl(did)),editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion'),serie:g('f-serie'),refCatalogoRazonado:g('f-ref-catalogo-razonado'),editor:g('f-editor'),docIds:g('f-doc-ids').split(',').map(x=>x.trim()).filter(Boolean)};
   if(isNew)items.push(item);else{const idx=items.findIndex(i=>i.id===id);items[idx]=item;}
   await saveItemToSheet(item,isNew);
   updateUI();closeForm();
@@ -680,7 +686,7 @@ function openDetail(id){
   else if(item.tipo==='print')sp=row('Técnica',item.tecnicaPrint)+row('Tamaño marco',item.tamanoMarco)+row('Enmarcado',item.enmarcado);
   else if(item.tipo==='carta')sp=row('Juego/Set',item.juego)+row('Expansión',item.expansion)+row('Rareza',item.rareza)+row('Variante',item.variante)+row('Gradeada',chk(item.gradeada))+row('Empresa grading',item.gradingEmp)+row('Nota grading',item.gradingNota)+row('Protección',item.proteccion);
   const tags=(item.tags||[]).map(t=>'<span class="tag tag-c0">'+t+'</span>').join('')||'—';
-  document.getElementById('detail-body').innerHTML=(photos?'<div class="detail-photos">'+photos+'</div>':'')+'<div class="detail-sections"><div><div class="detail-block-title">Identificación</div>'+row('Nº inventario',item.inv)+row('Tipo',item.tipo)+row('Artista/Autor',item.artista)+row('Fecha obra',item.fechaObra)+row('Colección',item.coleccion)+row('Temática',item.tematica)+'<div class="detail-row"><span class="detail-key">Tags</span><span class="detail-val" style="text-align:right">'+tags+'</span></div><div class="detail-block-title" style="margin-top:1.25rem">Descripción</div>'+row('Medio/Técnica',item.medio)+row('Tamaño',item.tamano)+row('Edición',item.edicion)+row('Soporte',item.soporte)+row('Numeración',item.numeracion)+row('Firmado',chk(item.firmado))+row('Numerado',chk(item.numerado))+row('Certificado',chk(item.cert))+sp+'</div><div><div class="detail-block-title">Adquisición y valor</div>'+row('Fecha compra',item.fechaCompra)+row('Vendedor',item.vendedor)+row('Precio compra',item.precioCompra?fmtEur(item.precioCompra):null)+row('Valor mercado',item.precioMercado?fmtEur(item.precioMercado):null)+row('Valor seguro',item.precioSeguro?fmtEur(item.precioSeguro):null)+(item.procedencia?'<div style="margin-top:0.5rem;font-size:0.85rem;color:var(--muted);line-height:1.5">'+item.procedencia+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Conservación</div><div class="detail-row"><span class="detail-key">Condición</span><span class="condition '+cc+'">'+item.condicion+'</span></div>'+(item.notasConservacion?'<div style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem">'+item.notasConservacion+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Ubicación</div>'+row('Estado',item.estadoUbicacion)+row('Inmueble',item.inmueble)+row('Estancia',item.estancia)+row('Mueble/Zona',item.mueble)+row('Posición exacta',item.posicion)+(item.notas?'<div class="detail-block-title" style="margin-top:1.25rem">Notas</div><div style="font-size:0.85rem;line-height:1.6">'+item.notas+'</div>':'')+(folderId?'<div style="margin-top:1.25rem"><a href="https://drive.google.com/drive/folders/'+folderId+'" target="_blank" style="font-size:0.8rem;color:var(--accent)">Ver carpeta de fotos en Drive →</a></div>':'')+'</div></div>';
+  document.getElementById('detail-body').innerHTML=(photos?'<div class="detail-photos">'+photos+'</div>':'')+'<div class="detail-sections"><div><div class="detail-block-title">Identificación</div>'+row('Nº inventario',item.inv)+row('Tipo',item.tipo)+row('Artista/Autor',item.artista)+row('Fecha obra',item.fechaObra)+row('Colección',item.coleccion)+row('Serie / Obra mayor',item.serie)+row('Temática',item.tematica)+'<div class="detail-row"><span class="detail-key">Tags</span><span class="detail-val" style="text-align:right">'+tags+'</span></div><div class="detail-block-title" style="margin-top:1.25rem">Descripción</div>'+row('Medio/Técnica',item.medio)+row('Tamaño',item.tamano)+row('Edición',item.edicion)+row('Soporte',item.soporte)+row('Numeración',item.numeracion)+row('Firmado',chk(item.firmado))+row('Numerado',chk(item.numerado))+row('Certificado',chk(item.cert))+row('Editor / Impresor',item.editor)+row('Ref. catálogo razonado',item.refCatalogoRazonado)+sp+'</div><div><div class="detail-block-title">Adquisición y valor</div>'+row('Fecha compra',item.fechaCompra)+row('Vendedor',item.vendedor)+row('Precio compra',item.precioCompra?fmtEur(item.precioCompra):null)+row('Valor mercado',item.precioMercado?fmtEur(item.precioMercado):null)+row('Valor seguro',item.precioSeguro?fmtEur(item.precioSeguro):null)+(item.procedencia?'<div style="margin-top:0.5rem;font-size:0.85rem;color:var(--muted);line-height:1.5">'+item.procedencia+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Conservación</div><div class="detail-row"><span class="detail-key">Condición</span><span class="condition '+cc+'">'+item.condicion+'</span></div>'+(item.notasConservacion?'<div style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem">'+item.notasConservacion+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Ubicación</div>'+row('Estado',item.estadoUbicacion)+row('Inmueble',item.inmueble)+row('Estancia',item.estancia)+row('Mueble/Zona',item.mueble)+row('Posición exacta',item.posicion)+(item.notas?'<div class="detail-block-title" style="margin-top:1.25rem">Notas</div><div style="font-size:0.85rem;line-height:1.6">'+item.notas+'</div>':'')+(folderId?'<div style="margin-top:1.25rem"><a href="https://drive.google.com/drive/folders/'+folderId+'" target="_blank" style="font-size:0.8rem;color:var(--accent)">Ver carpeta de fotos en Drive →</a></div>':'')+'</div></div>';
   document.getElementById('detail-overlay').classList.add('open');
 }
 function closeDetail(){document.getElementById('detail-overlay').classList.remove('open');}
