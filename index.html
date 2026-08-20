@@ -141,6 +141,12 @@ header{background:var(--surface);padding:0 2rem;display:flex;align-items:center;
 
 .photo-section{margin-bottom:1.5rem;}
 .photo-grid{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;}
+.doc-chip{position:relative;display:flex;align-items:center;gap:0.4rem;padding:0.45rem 1.6rem 0.45rem 0.6rem;border:1px solid var(--border,#ddd);border-radius:6px;font-size:0.78rem;max-width:100%;}
+.doc-chip b{font-size:0.6rem;letter-spacing:0.06em;opacity:0.65;}
+.doc-chip a{text-decoration:none;color:inherit;}
+.doc-chip i{opacity:0.6;font-size:0.7rem;}
+.doc-del{position:absolute;top:2px;right:3px;border:none;background:none;cursor:pointer;font-size:0.7rem;line-height:1;opacity:0.5;}
+.doc-del:hover{opacity:1;}
 .photo-thumb{width:100px;height:80px;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;position:relative;overflow:hidden;}
 .photo-thumb img{width:100%;height:100%;object-fit:cover;}
 .photo-del{position:absolute;top:4px;right:4px;background:rgba(176,64,106,0.85);color:white;border:none;border-radius:50%;width:20px;height:20px;font-size:0.6rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.15s;}
@@ -382,7 +388,9 @@ textarea{resize:vertical;min-height:70px;}
             <div class="form-group"><label>Valor a efectos de seguro (€)</label><input type="number" id="f-precio-seguro" step="0.01"></div>
             <div class="form-group"><label>Editor / Impresor</label><input type="text" id="f-editor" placeholder="Kaikai Kiki Co., Ltd."></div>
             <div class="form-group"><label>Ref. catálogo razonado</label><input type="text" id="f-ref-catalogo-razonado" placeholder="Michler &amp; Löpsinger 1078"></div>
-            <div class="form-group full"><label>Documentación (IDs de Drive, separados por comas)</label><input type="text" id="f-doc-ids" placeholder="certificados, facturas, notas de prensa"></div>
+            <div class="form-group full"><label>Documentación — certificados, facturas, notas de prensa (privada en Drive)</label>
+              <div class="photo-grid" id="doc-grid"></div>
+              <input type="file" id="doc-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.eml,.msg" multiple style="display:none" onchange="handleDocs(event)"></div>
             <div class="form-group full"><label>Historial de procedencia</label><textarea id="f-procedencia"></textarea></div>
           </div>
         </div>
@@ -453,9 +461,11 @@ const CLIENT_ID='177392680226-iaanfi834ntf73ppmu2d7gm7ueq4t2ho.apps.googleuserco
 const SCOPES='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets';
 const SHEET_NAME='Mi Coleccion - Catalogo';
 const FOLDER_NAME='Mi Coleccion - Fotos';
+const DOC_FOLDER_NAME='Mi Coleccion - Documentos';
+let docFolderId=null;
 
 let accessToken=null,sheetId=null,folderId=null,items=[],sheetGid=0;
-let currentView='grid',currentFilter='todos',editingId=null,currentTags=[],currentPhotos=[],currentDetailId=null;
+let currentView='grid',currentFilter='todos',editingId=null,currentTags=[],currentPhotos=[],currentDocs=[],currentDetailId=null;
 
 function signIn(){
   const client=google.accounts.oauth2.initTokenClient({
@@ -572,15 +582,52 @@ async function deleteItemFromSheet(id){
 
 async function uploadPhoto(file){
   showSync('Subiendo foto a Drive…');
+  try{
+    if(!folderId)folderId=await getOrCreate(FOLDER_NAME,'application/vnd.google-apps.folder');
+    const form=new FormData();
+    form.append('metadata',new Blob([JSON.stringify({name:file.name,parents:[folderId]})],{type:'application/json'}));
+    form.append('file',file);
+    const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form});
+    if(!res.ok){
+      const txt=await res.text();
+      console.error('[Foto] HTTP',res.status,res.statusText,txt);
+      let msg=res.statusText;
+      try{msg=JSON.parse(txt).error?.message||msg;}catch(e){}
+      throw new Error(res.status+' '+msg);
+    }
+    const d=await res.json();
+    return d.id;
+  }catch(e){console.error('[Foto] fallo:',e);throw e;}
+  finally{hideSync();}
+}
+
+async function getDocFolder(){
+  if(docFolderId)return docFolderId;
+  const q=`name='${DOC_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const r=await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`);
+  if(r.files&&r.files.length){docFolderId=r.files[0].id;return docFolderId;}
+  const c=await api('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',body:JSON.stringify({name:DOC_FOLDER_NAME,mimeType:'application/vnd.google-apps.folder'})});
+  docFolderId=c.id;return docFolderId;
+}
+async function uploadDoc(file){
+  showSync('Subiendo documento a Drive…');
+  const parent=await getDocFolder();
   const form=new FormData();
-  form.append('metadata',new Blob([JSON.stringify({name:file.name,parents:[folderId]})],{type:'application/json'}));
+  form.append('metadata',new Blob([JSON.stringify({name:file.name,parents:[parent]})],{type:'application/json'}));
   form.append('file',file);
   const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',headers:{Authorization:'Bearer '+accessToken},body:form});
-  if(!res.ok)throw new Error('Error subiendo foto');
+  if(!res.ok){const txt=await res.text();console.error('[Documento] HTTP',res.status,txt);let msg=res.statusText;try{msg=JSON.parse(txt).error?.message||msg;}catch(e){}hideSync();throw new Error(res.status+' '+msg);}
   const d=await res.json();
   hideSync();return d.id;
 }
-
+function docIcon(n){const e=(n||'').split('.').pop().toLowerCase();if(e==='pdf')return'PDF';if(['jpg','jpeg','png','webp','heic'].includes(e))return'IMG';if(['eml','msg'].includes(e))return'MAIL';if(['doc','docx'].includes(e))return'DOC';return'FILE';}
+function handleDocs(e){Array.from(e.target.files).forEach(file=>{currentDocs.push({file,name:file.name});});renderDocsUI();e.target.value='';}
+function removeDoc(i){currentDocs.splice(i,1);renderDocsUI();}
+function renderDocsUI(){
+  const grid=document.getElementById('doc-grid');if(!grid)return;
+  const chips=currentDocs.map((d,i)=>'<div class="doc-chip">'+(d.driveId?'<a href="https://drive.google.com/file/d/'+d.driveId+'/view" target="_blank" rel="noopener">':'<span>')+'<b>'+docIcon(d.name)+'</b> '+(d.name||'documento')+(d.driveId?'</a>':' <i>(por subir)</i></span>')+'<button class="doc-del" onclick="removeDoc('+i+')">✕</button></div>').join('');
+  grid.innerHTML=chips+'<div class="photo-add" onclick="document.getElementById(\'doc-input\').click()"><span class="plus">+</span><span>Añadir</span></div>';
+}
 function updateUI(){updateCounts();updateStats();updateCollectionFilter();updateLocationDatalist();renderItems();}
 
 function renderItems(){
@@ -631,7 +678,7 @@ function setView(v){currentView=v;document.getElementById('btn-grid').classList.
 function openDrive(){if(folderId)window.open('https://drive.google.com/drive/folders/'+folderId,'_blank');}
 
 function openForm(id=null){
-  editingId=id;currentPhotos=[];
+  editingId=id;currentPhotos=[];currentDocs=[];
   const item=id?items.find(i=>i.id===id):null;
   document.getElementById('form-title').textContent=id?'Editar pieza':'Nueva pieza';
   document.getElementById('btn-delete').style.display=id?'inline-flex':'none';
@@ -639,7 +686,7 @@ function openForm(id=null){
   ['firmado','numerado','cert','gradeada'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.checked=item?!!item[k]:false});
   ['tipo','condicion','estado-ubicacion','enmarcado'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||el.options[0].value):el.options[0].value});
   ['precio-compra','precio-mercado','precio-seguro','paginas'].forEach(k=>{const el=document.getElementById('f-'+k);if(el)el.value=item?(item[k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase())]||''):''});
-  const dd=document.getElementById('f-doc-ids');if(dd)dd.value=item?((item.docIds||[]).join(', ')):'';
+  currentDocs=item?((item.docIds||[]).map((did,i)=>({driveId:did,name:'documento '+(i+1)}))):[];renderDocsUI();
   const fd=document.getElementById('f-fecha-compra');if(fd)fd.value=item?(item.fechaCompra||''):'';
   currentTags=item?[...(item.tags||[])]:[];renderTagsUI();
   currentPhotos=item?(item.photoIds||[]).map((did,i)=>({driveId:did,src:thumbUrl(did),name:'foto'+(i+1)})):[];
@@ -657,10 +704,14 @@ async function saveItem(){
   const id=editingId||Date.now().toString(36)+Math.random().toString(36).slice(2);
   let photoIds=currentPhotos.filter(p=>p.driveId).map(p=>p.driveId);
   for(const p of currentPhotos.filter(p=>!p.driveId&&p.file)){
-    try{const did=await uploadPhoto(p.file);photoIds.push(did);}catch(e){toast('Error foto: '+e.message,'error');}
+    try{const did=await uploadPhoto(p.file);photoIds.push(did);}catch(e){toast('Error foto: '+e.message,'error',9000);}
+  }
+  let docIds=currentDocs.filter(d=>d.driveId).map(d=>d.driveId);
+  for(const d of currentDocs.filter(d=>!d.driveId&&d.file)){
+    try{const did=await uploadDoc(d.file);docIds.push(did);}catch(e){toast('Error documento: '+e.message,'error');}
   }
   const tipo=g('f-tipo');
-  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds.map(did=>thumbUrl(did)),editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion'),serie:g('f-serie'),refCatalogoRazonado:g('f-ref-catalogo-razonado'),editor:g('f-editor'),docIds:g('f-doc-ids').split(',').map(x=>x.trim()).filter(Boolean)};
+  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds.map(did=>thumbUrl(did)),editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion'),serie:g('f-serie'),refCatalogoRazonado:g('f-ref-catalogo-razonado'),editor:g('f-editor'),docIds};
   if(isNew)items.push(item);else{const idx=items.findIndex(i=>i.id===id);items[idx]=item;}
   await saveItemToSheet(item,isNew);
   updateUI();closeForm();
@@ -687,7 +738,7 @@ function openDetail(id){
   else if(item.tipo==='print')sp=row('Técnica',item.tecnicaPrint)+row('Tamaño marco',item.tamanoMarco)+row('Enmarcado',item.enmarcado);
   else if(item.tipo==='carta')sp=row('Juego/Set',item.juego)+row('Expansión',item.expansion)+row('Rareza',item.rareza)+row('Variante',item.variante)+row('Gradeada',chk(item.gradeada))+row('Empresa grading',item.gradingEmp)+row('Nota grading',item.gradingNota)+row('Protección',item.proteccion);
   const tags=(item.tags||[]).map(t=>'<span class="tag tag-c0">'+t+'</span>').join('')||'—';
-  document.getElementById('detail-body').innerHTML=(photos?'<div class="detail-photos">'+photos+'</div>':'')+'<div class="detail-sections"><div><div class="detail-block-title">Identificación</div>'+row('Nº inventario',item.inv)+row('Tipo',item.tipo)+row('Artista/Autor',item.artista)+row('Fecha obra',item.fechaObra)+row('Colección',item.coleccion)+row('Serie / Obra mayor',item.serie)+row('Temática',item.tematica)+'<div class="detail-row"><span class="detail-key">Tags</span><span class="detail-val" style="text-align:right">'+tags+'</span></div><div class="detail-block-title" style="margin-top:1.25rem">Descripción</div>'+row('Medio/Técnica',item.medio)+row('Tamaño',item.tamano)+row('Edición',item.edicion)+row('Soporte',item.soporte)+row('Numeración',item.numeracion)+row('Firmado',chk(item.firmado))+row('Numerado',chk(item.numerado))+row('Certificado',chk(item.cert))+row('Editor / Impresor',item.editor)+row('Ref. catálogo razonado',item.refCatalogoRazonado)+sp+'</div><div><div class="detail-block-title">Adquisición y valor</div>'+row('Fecha compra',item.fechaCompra)+row('Vendedor',item.vendedor)+row('Precio compra',item.precioCompra?fmtEur(item.precioCompra):null)+row('Valor mercado',item.precioMercado?fmtEur(item.precioMercado):null)+row('Valor seguro',item.precioSeguro?fmtEur(item.precioSeguro):null)+(item.procedencia?'<div style="margin-top:0.5rem;font-size:0.85rem;color:var(--muted);line-height:1.5">'+item.procedencia+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Conservación</div><div class="detail-row"><span class="detail-key">Condición</span><span class="condition '+cc+'">'+item.condicion+'</span></div>'+(item.notasConservacion?'<div style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem">'+item.notasConservacion+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Ubicación</div>'+row('Estado',item.estadoUbicacion)+row('Inmueble',item.inmueble)+row('Estancia',item.estancia)+row('Mueble/Zona',item.mueble)+row('Posición exacta',item.posicion)+(item.notas?'<div class="detail-block-title" style="margin-top:1.25rem">Notas</div><div style="font-size:0.85rem;line-height:1.6">'+item.notas+'</div>':'')+(folderId?'<div style="margin-top:1.25rem"><a href="https://drive.google.com/drive/folders/'+folderId+'" target="_blank" style="font-size:0.8rem;color:var(--accent)">Ver carpeta de fotos en Drive →</a></div>':'')+'</div></div>';
+  document.getElementById('detail-body').innerHTML=(photos?'<div class="detail-photos">'+photos+'</div>':'')+'<div class="detail-sections"><div><div class="detail-block-title">Identificación</div>'+row('Nº inventario',item.inv)+row('Tipo',item.tipo)+row('Artista/Autor',item.artista)+row('Fecha obra',item.fechaObra)+row('Colección',item.coleccion)+row('Serie / Obra mayor',item.serie)+row('Temática',item.tematica)+'<div class="detail-row"><span class="detail-key">Tags</span><span class="detail-val" style="text-align:right">'+tags+'</span></div><div class="detail-block-title" style="margin-top:1.25rem">Descripción</div>'+row('Medio/Técnica',item.medio)+row('Tamaño',item.tamano)+row('Edición',item.edicion)+row('Soporte',item.soporte)+row('Numeración',item.numeracion)+row('Firmado',chk(item.firmado))+row('Numerado',chk(item.numerado))+row('Certificado',chk(item.cert))+row('Documentación',((item.docIds||[]).length?item.docIds.map((d,i)=>'<a href="https://drive.google.com/file/d/'+d+'/view" target="_blank" rel="noopener">Documento '+(i+1)+'</a>').join(' · '):''))+row('Editor / Impresor',item.editor)+row('Ref. catálogo razonado',item.refCatalogoRazonado)+sp+'</div><div><div class="detail-block-title">Adquisición y valor</div>'+row('Fecha compra',item.fechaCompra)+row('Vendedor',item.vendedor)+row('Precio compra',item.precioCompra?fmtEur(item.precioCompra):null)+row('Valor mercado',item.precioMercado?fmtEur(item.precioMercado):null)+row('Valor seguro',item.precioSeguro?fmtEur(item.precioSeguro):null)+(item.procedencia?'<div style="margin-top:0.5rem;font-size:0.85rem;color:var(--muted);line-height:1.5">'+item.procedencia+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Conservación</div><div class="detail-row"><span class="detail-key">Condición</span><span class="condition '+cc+'">'+item.condicion+'</span></div>'+(item.notasConservacion?'<div style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem">'+item.notasConservacion+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Ubicación</div>'+row('Estado',item.estadoUbicacion)+row('Inmueble',item.inmueble)+row('Estancia',item.estancia)+row('Mueble/Zona',item.mueble)+row('Posición exacta',item.posicion)+(item.notas?'<div class="detail-block-title" style="margin-top:1.25rem">Notas</div><div style="font-size:0.85rem;line-height:1.6">'+item.notas+'</div>':'')+(folderId?'<div style="margin-top:1.25rem"><a href="https://drive.google.com/drive/folders/'+folderId+'" target="_blank" style="font-size:0.8rem;color:var(--accent)">Ver carpeta de fotos en Drive →</a></div>':'')+'</div></div>';
   document.getElementById('detail-overlay').classList.add('open');
 }
 function closeDetail(){document.getElementById('detail-overlay').classList.remove('open');}
@@ -706,7 +757,7 @@ function closeLightbox(){document.getElementById('lightbox').classList.remove('o
 function showSync(msg){const b=document.getElementById('sync-bar');b.classList.add('show');document.getElementById('sync-msg').textContent=msg;}
 function hideSync(){document.getElementById('sync-bar').classList.remove('show');}
 function closeIfBg(e,id){if(e.target.id===id)document.getElementById(id).classList.remove('open');}
-function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type==='success'?'success':type==='error'?'error':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+function toast(msg,type='',ms=3000){const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type==='success'?'success':type==='error'?'error':'');t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms);}
 </script>
 </body>
 </html>
