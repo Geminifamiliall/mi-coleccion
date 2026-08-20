@@ -532,7 +532,8 @@ function rowToItem(row,headers){
   return item;
 }
 
-function thumbUrl(id){return'https://drive.google.com/thumbnail?id='+id+'&sz=w400';}
+function thumbUrl(id){return'https://lh3.googleusercontent.com/d/'+id+'=w600';}
+function thumbFallback(img,id){if(img.dataset.fb)return;img.dataset.fb='1';img.src='https://drive.google.com/thumbnail?id='+id+'&sz=w600';}
 function fullUrl(id){return'https://lh3.googleusercontent.com/d/'+id;}
 
 async function loadItems(){
@@ -607,7 +608,7 @@ function badge(t){const cl={libro:'badge-libro',print:'badge-print',carta:'badge
 
 function cardHTML(item){
   const src=item.photos&&item.photos[0];
-  const img=src?'<div class="card-img"><img src="'+src+'" alt="'+item.titulo+'" loading="lazy" onerror="this.style.display=\'none\'"></div>':'<div class="card-img">'+dot(item.tipo)+'</div>';
+  const img=src?'<div class="card-img"><img src="'+src+'" alt="'+item.titulo+'" loading="lazy" data-fid="'+((item.photoIds||[])[0]||'')+'" onerror="thumbFallback(this,this.dataset.fid)"></div>':'<div class="card-img">'+dot(item.tipo)+'</div>';
   const tc=['tag-c0','tag-c1','tag-c2','tag-c3','tag-c4','tag-c5'];
   const tags=(item.tags||[]).slice(0,3).map((t,i)=>'<span class="tag '+tc[i%6]+'">'+t+'</span>').join('');
   return '<div class="card" onclick="openDetail(\''+item.id+'\')">'+img+'<div class="card-body"><div class="card-type">'+(item.tipo||'—')+'</div><div class="card-title">'+(item.titulo||'Sin título')+'</div><div class="card-sub">'+(item.artista||'—')+'</div><div style="margin-top:0.4rem">'+tags+'</div><div class="card-meta"><span class="card-inv">'+(item.inv||'—')+'</span><span class="card-price">'+(item.precioMercado?fmtEur(item.precioMercado):'—')+'</span></div></div></div>';
@@ -615,7 +616,7 @@ function cardHTML(item){
 
 function listItemHTML(item){
   const src=item.photos&&item.photos[0];
-  const thumb=src?'<div class="list-thumb"><img src="'+src+'" alt="" onerror="this.style.display=\'none\'"></div>':'<div class="list-thumb">'+dot(item.tipo)+'</div>';
+  const thumb=src?'<div class="list-thumb"><img src="'+src+'" alt="" loading="lazy" data-fid="'+((item.photoIds||[])[0]||'')+'" onerror="thumbFallback(this,this.dataset.fid)"></div>':'<div class="list-thumb">'+dot(item.tipo)+'</div>';
   const cc={'Excelente':'cond-excelente','Buena':'cond-buena','Regular':'cond-regular','Necesita restauración':'cond-restauracion'}[item.condicion]||'';
   return '<div class="list-item" onclick="openDetail(\''+item.id+'\')">'+thumb+'<span class="list-inv">'+(item.inv||'—')+'</span><div><div class="list-title">'+(item.titulo||'Sin título')+'</div></div><div class="list-author">'+(item.artista||'—')+'</div>'+badge(item.tipo)+'<span class="list-price">'+(item.precioCompra?fmtEur(item.precioCompra):'—')+'</span><span class="list-price">'+(item.precioMercado?fmtEur(item.precioMercado):'—')+'</span><span class="condition '+cc+'">'+(item.condicion||'—')+'</span></div>';
 }
@@ -678,7 +679,7 @@ function openDetail(id){
   const item=items.find(i=>i.id===id);if(!item)return;
   document.getElementById('detail-title').textContent=item.titulo||'Sin título';
   const cc={'Excelente':'cond-excelente','Buena':'cond-buena','Regular':'cond-regular','Necesita restauración':'cond-restauracion'}[item.condicion]||'';
-  const photos=(item.photoIds||[]).map(fid=>'<img class="detail-photo" src="'+thumbUrl(fid)+'" onclick="openLightbox(\''+fullUrl(fid)+'\')" alt="">').join('');
+  const photos=(item.photoIds||[]).map(fid=>'<img class="detail-photo" src="'+thumbUrl(fid)+'" loading="lazy" data-fid="'+fid+'" onerror="thumbFallback(this,this.dataset.fid)" onclick="openLightbox(\''+fullUrl(fid)+'\')" alt="">').join('');
   const row=(k,v)=>v?'<div class="detail-row"><span class="detail-key">'+k+'</span><span class="detail-val">'+v+'</span></div>':'';
   const chk=v=>v?'Sí':'No';
   let sp='';
