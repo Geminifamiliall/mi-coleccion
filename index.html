@@ -141,6 +141,9 @@ header{background:var(--surface);padding:0 2rem;display:flex;align-items:center;
 
 .photo-section{margin-bottom:1.5rem;}
 .photo-grid{display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:0.75rem;}
+img[data-fid]{opacity:0;transition:opacity 0.25s ease;background:rgba(0,0,0,0.04);}
+img[data-fid].img-ready{opacity:1;}
+img[data-fid].img-fail{opacity:1;background:repeating-linear-gradient(45deg,rgba(0,0,0,0.05),rgba(0,0,0,0.05) 6px,transparent 6px,transparent 12px);}
 .doc-chip{position:relative;display:flex;align-items:center;gap:0.4rem;padding:0.45rem 1.6rem 0.45rem 0.6rem;border:1px solid var(--border,#ddd);border-radius:6px;font-size:0.78rem;max-width:100%;}
 .doc-chip b{font-size:0.6rem;letter-spacing:0.06em;opacity:0.65;}
 .doc-chip a{text-decoration:none;color:inherit;}
@@ -538,13 +541,55 @@ function rowToItem(row,headers){
     else if(h==='paginas')item[h]=v?parseInt(v):null;
     else item[h]=v;
   });
-  item.photos=(item.photoIds||[]).map(id=>thumbUrl(id));
+  item.photos=item.photoIds||[];
   return item;
 }
 
-function thumbUrl(id){return'https://lh3.googleusercontent.com/d/'+id+'=w600';}
-function thumbFallback(img,id){if(img.dataset.fb)return;img.dataset.fb='1';img.src='https://drive.google.com/thumbnail?id='+id+'&sz=w600';}
-function fullUrl(id){return'https://lh3.googleusercontent.com/d/'+id;}
+const imgCache=new Map();
+let imgActive=0;const imgQueue=[];
+function imgPump(){
+  while(imgActive<4&&imgQueue.length){const job=imgQueue.shift();imgActive++;job().finally(()=>{imgActive--;imgPump();});}
+}
+function fetchImage(id){
+  if(!id)return Promise.reject(new Error('sin id'));
+  if(imgCache.has(id))return imgCache.get(id);
+  const pr=new Promise((resolve,reject)=>{
+    imgQueue.push(async()=>{
+      try{
+        const r=await fetch('https://www.googleapis.com/drive/v3/files/'+id+'?alt=media',{headers:{Authorization:'Bearer '+accessToken}});
+        if(!r.ok){console.error('[Foto] HTTP',r.status,id);throw new Error('HTTP '+r.status);}
+        resolve(URL.createObjectURL(await r.blob()));
+      }catch(e){imgCache.delete(id);reject(e);}
+    });
+    imgPump();
+  });
+  imgCache.set(id,pr);
+  return pr;
+}
+let imgObserver=null;
+function hydrateImages(){
+  if(!imgObserver){
+    imgObserver=new IntersectionObserver(es=>{
+      es.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;imgObserver.unobserve(el);loadImageEl(el);});
+    },{rootMargin:'300px'});
+  }
+  document.querySelectorAll('img[data-fid]:not([data-img-done])').forEach(el=>{
+    el.dataset.imgDone='1';
+    if(!el.dataset.fid){el.style.display='none';return;}
+    imgObserver.observe(el);
+  });
+}
+function loadImageEl(el){
+  fetchImage(el.dataset.fid)
+    .then(u=>{el.src=u;el.classList.add('img-ready');})
+    .catch(()=>{el.classList.add('img-fail');});
+}
+function openLightboxId(id){
+  const img=document.getElementById('lightbox-img');
+  img.removeAttribute('src');
+  document.getElementById('lightbox').classList.add('open');
+  fetchImage(id).then(u=>{img.src=u;}).catch(()=>{});
+}
 
 async function loadItems(){
   showSync('Cargando catálogo…');
@@ -646,24 +691,25 @@ function renderItems(){
     c.innerHTML='<div class="empty"><svg class="empty-flower" width="64" height="64" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="12" r="9" fill="#b8d8f5"/><circle cx="52" cy="22" r="9" fill="#c2e8e0"/><circle cx="52" cy="42" r="9" fill="#c8d8f8"/><circle cx="32" cy="52" r="9" fill="#f0c8e0"/><circle cx="12" cy="42" r="9" fill="#fdefc0"/><circle cx="12" cy="22" r="9" fill="#deeeff"/><circle cx="32" cy="32" r="11" fill="#fff" stroke="#c8dff0" stroke-width="2"/><circle cx="32" cy="32" r="6" fill="#b8d8f5"/></svg><h3>Tu colección está vacía</h3><p>Añade tu primera pieza con el botón <strong>+ Nueva pieza</strong></p></div>';
     return;
   }
-  if(currentView==='grid'){c.innerHTML='<div class="grid">'+filtered.map(cardHTML).join('')+'</div>';}
+  if(currentView==='grid'){c.innerHTML='<div class="grid">'+filtered.map(cardHTML).join('')+'</div>';hydrateImages();return;}
   else{c.innerHTML='<div class="list-header"><span></span><span>Ref</span><span>Título</span><span>Artista/Autor</span><span>Tipo</span><span>Precio compra</span><span>Valor mercado</span><span>Condición</span></div><div class="list-view">'+filtered.map(listItemHTML).join('')+'</div>';}
+  hydrateImages();
 }
 
 function dot(t){const c={libro:'#b8d8f5',print:'#f0c8e0',carta:'#c2e8e0',otro:'#c8d8f8'};return '<div style="width:32px;height:32px;border-radius:50%;background:'+(c[t]||'#deeeff')+'"></div>';}
 function badge(t){const cl={libro:'badge-libro',print:'badge-print',carta:'badge-carta',otro:'badge-otro'}[t]||'badge-otro';return '<span class="list-type-badge '+cl+'">'+t+'</span>';}
 
 function cardHTML(item){
-  const src=item.photos&&item.photos[0];
-  const img=src?'<div class="card-img"><img src="'+src+'" alt="'+item.titulo+'" loading="lazy" data-fid="'+((item.photoIds||[])[0]||'')+'" onerror="thumbFallback(this,this.dataset.fid)"></div>':'<div class="card-img">'+dot(item.tipo)+'</div>';
+  const fid=(item.photoIds||[])[0];
+  const img=fid?'<div class="card-img"><img data-fid="'+fid+'" alt="'+(item.titulo||'')+'"></div>':'<div class="card-img">'+dot(item.tipo)+'</div>';
   const tc=['tag-c0','tag-c1','tag-c2','tag-c3','tag-c4','tag-c5'];
   const tags=(item.tags||[]).slice(0,3).map((t,i)=>'<span class="tag '+tc[i%6]+'">'+t+'</span>').join('');
   return '<div class="card" onclick="openDetail(\''+item.id+'\')">'+img+'<div class="card-body"><div class="card-type">'+(item.tipo||'—')+'</div><div class="card-title">'+(item.titulo||'Sin título')+'</div><div class="card-sub">'+(item.artista||'—')+'</div><div style="margin-top:0.4rem">'+tags+'</div><div class="card-meta"><span class="card-inv">'+(item.inv||'—')+'</span><span class="card-price">'+(item.precioMercado?fmtEur(item.precioMercado):'—')+'</span></div></div></div>';
 }
 
 function listItemHTML(item){
-  const src=item.photos&&item.photos[0];
-  const thumb=src?'<div class="list-thumb"><img src="'+src+'" alt="" loading="lazy" data-fid="'+((item.photoIds||[])[0]||'')+'" onerror="thumbFallback(this,this.dataset.fid)"></div>':'<div class="list-thumb">'+dot(item.tipo)+'</div>';
+  const fid=(item.photoIds||[])[0];
+  const thumb=fid?'<div class="list-thumb"><img data-fid="'+fid+'" alt=""></div>':'<div class="list-thumb">'+dot(item.tipo)+'</div>';
   const cc={'Excelente':'cond-excelente','Buena':'cond-buena','Regular':'cond-regular','Necesita restauración':'cond-restauracion'}[item.condicion]||'';
   return '<div class="list-item" onclick="openDetail(\''+item.id+'\')">'+thumb+'<span class="list-inv">'+(item.inv||'—')+'</span><div><div class="list-title">'+(item.titulo||'Sin título')+'</div></div><div class="list-author">'+(item.artista||'—')+'</div>'+badge(item.tipo)+'<span class="list-price">'+(item.precioCompra?fmtEur(item.precioCompra):'—')+'</span><span class="list-price">'+(item.precioMercado?fmtEur(item.precioMercado):'—')+'</span><span class="condition '+cc+'">'+(item.condicion||'—')+'</span></div>';
 }
@@ -689,7 +735,7 @@ function openForm(id=null){
   currentDocs=item?((item.docIds||[]).map((did,i)=>({driveId:did,name:'documento '+(i+1)}))):[];renderDocsUI();
   const fd=document.getElementById('f-fecha-compra');if(fd)fd.value=item?(item.fechaCompra||''):'';
   currentTags=item?[...(item.tags||[])]:[];renderTagsUI();
-  currentPhotos=item?(item.photoIds||[]).map((did,i)=>({driveId:did,src:thumbUrl(did),name:'foto'+(i+1)})):[];
+  currentPhotos=item?(item.photoIds||[]).map((did,i)=>({driveId:did,src:'',name:'foto'+(i+1)})):[];
   renderPhotosUI();toggleTypeFields();
   document.getElementById('form-overlay').classList.add('open');
 }
@@ -730,7 +776,7 @@ function openDetail(id){
   const item=items.find(i=>i.id===id);if(!item)return;
   document.getElementById('detail-title').textContent=item.titulo||'Sin título';
   const cc={'Excelente':'cond-excelente','Buena':'cond-buena','Regular':'cond-regular','Necesita restauración':'cond-restauracion'}[item.condicion]||'';
-  const photos=(item.photoIds||[]).map(fid=>'<img class="detail-photo" src="'+thumbUrl(fid)+'" loading="lazy" data-fid="'+fid+'" onerror="thumbFallback(this,this.dataset.fid)" onclick="openLightbox(\''+fullUrl(fid)+'\')" alt="">').join('');
+  const photos=(item.photoIds||[]).map(fid=>'<img class="detail-photo" data-fid="'+fid+'" onclick="openLightboxId(\''+fid+'\')" alt="">').join('');
   const row=(k,v)=>v?'<div class="detail-row"><span class="detail-key">'+k+'</span><span class="detail-val">'+v+'</span></div>':'';
   const chk=v=>v?'Sí':'No';
   let sp='';
@@ -740,13 +786,15 @@ function openDetail(id){
   const tags=(item.tags||[]).map(t=>'<span class="tag tag-c0">'+t+'</span>').join('')||'—';
   document.getElementById('detail-body').innerHTML=(photos?'<div class="detail-photos">'+photos+'</div>':'')+'<div class="detail-sections"><div><div class="detail-block-title">Identificación</div>'+row('Nº inventario',item.inv)+row('Tipo',item.tipo)+row('Artista/Autor',item.artista)+row('Fecha obra',item.fechaObra)+row('Colección',item.coleccion)+row('Serie / Obra mayor',item.serie)+row('Temática',item.tematica)+'<div class="detail-row"><span class="detail-key">Tags</span><span class="detail-val" style="text-align:right">'+tags+'</span></div><div class="detail-block-title" style="margin-top:1.25rem">Descripción</div>'+row('Medio/Técnica',item.medio)+row('Tamaño',item.tamano)+row('Edición',item.edicion)+row('Soporte',item.soporte)+row('Numeración',item.numeracion)+row('Firmado',chk(item.firmado))+row('Numerado',chk(item.numerado))+row('Certificado',chk(item.cert))+row('Documentación',((item.docIds||[]).length?item.docIds.map((d,i)=>'<a href="https://drive.google.com/file/d/'+d+'/view" target="_blank" rel="noopener">Documento '+(i+1)+'</a>').join(' · '):''))+row('Editor / Impresor',item.editor)+row('Ref. catálogo razonado',item.refCatalogoRazonado)+sp+'</div><div><div class="detail-block-title">Adquisición y valor</div>'+row('Fecha compra',item.fechaCompra)+row('Vendedor',item.vendedor)+row('Precio compra',item.precioCompra?fmtEur(item.precioCompra):null)+row('Valor mercado',item.precioMercado?fmtEur(item.precioMercado):null)+row('Valor seguro',item.precioSeguro?fmtEur(item.precioSeguro):null)+(item.procedencia?'<div style="margin-top:0.5rem;font-size:0.85rem;color:var(--muted);line-height:1.5">'+item.procedencia+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Conservación</div><div class="detail-row"><span class="detail-key">Condición</span><span class="condition '+cc+'">'+item.condicion+'</span></div>'+(item.notasConservacion?'<div style="font-size:0.85rem;color:var(--muted);margin-top:0.4rem">'+item.notasConservacion+'</div>':'')+'<div class="detail-block-title" style="margin-top:1.25rem">Ubicación</div>'+row('Estado',item.estadoUbicacion)+row('Inmueble',item.inmueble)+row('Estancia',item.estancia)+row('Mueble/Zona',item.mueble)+row('Posición exacta',item.posicion)+(item.notas?'<div class="detail-block-title" style="margin-top:1.25rem">Notas</div><div style="font-size:0.85rem;line-height:1.6">'+item.notas+'</div>':'')+(folderId?'<div style="margin-top:1.25rem"><a href="https://drive.google.com/drive/folders/'+folderId+'" target="_blank" style="font-size:0.8rem;color:var(--accent)">Ver carpeta de fotos en Drive →</a></div>':'')+'</div></div>';
   document.getElementById('detail-overlay').classList.add('open');
+  hydrateImages();
 }
 function closeDetail(){document.getElementById('detail-overlay').classList.remove('open');}
 function editCurrent(){closeDetail();openForm(currentDetailId);}
 
 function handlePhotos(e){Array.from(e.target.files).forEach(file=>{const reader=new FileReader();reader.onload=ev=>{currentPhotos.push({file,src:ev.target.result,name:file.name});renderPhotosUI();};reader.readAsDataURL(file);});e.target.value='';}
-function renderPhotosUI(){const grid=document.getElementById('photo-grid');const thumbs=currentPhotos.map((p,i)=>'<div class="photo-thumb"><img src="'+p.src+'" alt="">'+(p.driveId?'':'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(58,134,200,0.8);color:white;font-size:0.55rem;text-align:center;padding:2px">Por subir</div>')+'<button class="photo-del" onclick="removePhoto('+i+')">✕</button></div>').join('');grid.innerHTML=thumbs+'<div class="photo-add" onclick="document.getElementById(\'photo-input\').click()"><span class="plus">+</span><span>Añadir</span></div>';}
+function renderPhotosUI(){const grid=document.getElementById('photo-grid');const thumbs=currentPhotos.map((p,i)=>'<div class="photo-thumb"><img '+(p.driveId?'data-fid="'+p.driveId+'"':'src="'+p.src+'"')+' alt="">'+(p.driveId?'':'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(58,134,200,0.8);color:white;font-size:0.55rem;text-align:center;padding:2px">Por subir</div>')+'<button class="photo-del" onclick="removePhoto('+i+')">✕</button></div>').join('');grid.innerHTML=thumbs+'<div class="photo-add" onclick="document.getElementById(\'photo-input\').click()"><span class="plus">+</span><span>Añadir</span></div>';}
 function removePhoto(i){currentPhotos.splice(i,1);renderPhotosUI();}
+const _rpu=renderPhotosUI;renderPhotosUI=function(){_rpu.apply(this,arguments);hydrateImages();};
 
 function renderTagsUI(){const c=document.getElementById('tags-container'),inp=document.getElementById('tag-input');c.innerHTML=currentTags.map((t,i)=>'<span class="tag-item">'+t+'<span class="tag-remove" onclick="removeTag('+i+')">✕</span></span>').join('');c.appendChild(inp);}
 function handleTagInput(e){if(e.key==='Enter'||e.key===','){e.preventDefault();const v=e.target.value.trim().replace(/,$/,'');if(v&&!currentTags.includes(v)){currentTags.push(v);renderTagsUI();}e.target.value='';}if(e.key==='Backspace'&&!e.target.value&&currentTags.length){currentTags.pop();renderTagsUI();}}
