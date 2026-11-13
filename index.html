@@ -103,6 +103,7 @@ header{background:var(--surface);padding:0 2.5rem;display:flex;align-items:cente
 /* ── Totales: una línea al pie ──────────────────────────────────────── */
 .stats-bar{display:flex;flex-wrap:wrap;gap:0.25rem 1.75rem;margin-top:3.5rem;padding-top:0.85rem;border-top:1px solid var(--border);font-size:0.8rem;color:var(--muted);font-variant-numeric:tabular-nums;}
 .stat-value{color:var(--ink);margin-left:0.4rem;}
+.stat-version{margin-left:auto;}
 
 /* ── Rejilla: la obra sobre una placa blanca, sin caja alrededor ────── */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:3rem 2.25rem;}
@@ -329,6 +330,7 @@ textarea{resize:vertical;min-height:70px;}
         <span class="stat"><span class="stat-label">Adquisición</span><span class="stat-value" id="stat-compra">—</span></span>
         <span class="stat"><span class="stat-label">Mercado</span><span class="stat-value" id="stat-mercado">—</span></span>
         <span class="stat"><span class="stat-label">Seguro</span><span class="stat-value" id="stat-seguro">—</span></span>
+        <span class="stat stat-version">Versión 13-11-2026 c</span>
       </footer>
     </main>
   </div>
@@ -805,7 +807,7 @@ async function saveItem(){
     try{const did=await uploadDoc(d.file);docIds.push(did);}catch(e){toast('Error documento: '+e.message,'error');}
   }
   const tipo=g('f-tipo');
-  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds.map(did=>thumbUrl(did)),editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion'),serie:g('f-serie'),refCatalogoRazonado:g('f-ref-catalogo-razonado'),editor:g('f-editor'),docIds};
+  const item={id,tipo,inv:g('f-inv'),titulo,artista:g('f-artista'),fechaObra:g('f-fecha-obra'),coleccion:g('f-coleccion'),tematica:g('f-tematica'),medio:g('f-medio'),tamano:g('f-tamano'),edicion:g('f-edicion'),soporte:g('f-soporte'),numeracion:g('f-numeracion'),firmado:gc('f-firmado'),numerado:gc('f-numerado'),cert:gc('f-cert'),fechaCompra:g('f-fecha-compra'),vendedor:g('f-vendedor'),precioCompra:parseFloat(g('f-precio-compra'))||null,precioMercado:parseFloat(g('f-precio-mercado'))||null,precioSeguro:parseFloat(g('f-precio-seguro'))||null,procedencia:g('f-procedencia'),condicion:g('f-condicion'),notasConservacion:g('f-notas-conservacion'),estadoUbicacion:g('f-estado-ubicacion'),inmueble:g('f-inmueble'),estancia:g('f-estancia'),mueble:g('f-mueble'),posicion:g('f-posicion'),notas:g('f-notas'),tags:[...currentTags],photoIds,photos:photoIds,editorial:g('f-editorial'),isbn:g('f-isbn'),idioma:g('f-idioma'),encuadernacion:g('f-encuadernacion'),ilustrador:g('f-ilustrador'),paginas:parseInt(g('f-paginas'))||null,tecnicaPrint:g('f-tecnica-print'),tamanoMarco:g('f-tamano-marco'),enmarcado:g('f-enmarcado'),juego:g('f-juego'),expansion:g('f-expansion'),rareza:g('f-rareza'),variante:g('f-variante'),numSet:g('f-num-set'),idiomaCarta:g('f-idioma-carta'),gradeada:gc('f-gradeada'),gradingEmp:g('f-grading-emp'),gradingNota:g('f-grading-nota'),proteccion:g('f-proteccion'),serie:g('f-serie'),refCatalogoRazonado:g('f-ref-catalogo-razonado'),editor:g('f-editor'),docIds};
   if(isNew)items.push(item);else{const idx=items.findIndex(i=>i.id===id);items[idx]=item;}
   await saveItemToSheet(item,isNew);
   updateUI();closeForm();
